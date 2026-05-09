@@ -1,0 +1,7 @@
+{
+  "name": "uta-alerta-mobile",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
