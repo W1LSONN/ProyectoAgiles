@@ -15,6 +15,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // JWT Service
 builder.Services.AddScoped<JwtService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // Autenticación JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"]!;
@@ -39,7 +49,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
-
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
