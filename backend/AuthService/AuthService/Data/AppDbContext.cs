@@ -31,5 +31,8 @@ public class AppDbContext : DbContext
             new Rol { IdRol = 3, NombreRol = "Estudiante", Descripcion = "Estudiante de la UTA" },
             new Rol { IdRol = 4, NombreRol = "Docente", Descripcion = "Docente de la UTA" }
         );
+
+        // Seed data — Usuarios
+        UsuarioSeeder.Seed(modelBuilder);
     }
 }
