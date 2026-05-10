@@ -1,41 +1,59 @@
+using Microsoft.EntityFrameworkCore;
+using NotificationService.Data;
+using NotificationService.Hubs;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// ── BASE DE DATOS ─────────────────────────────────────────────────────
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// ── CORS ──────────────────────────────────────────────────────────────
+// Permite conexiones desde el frontend web (5173) y la app móvil (8100)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontends", policy =>
+    {
+        policy
+            .WithOrigins(
+                "http://localhost:5173",   // React web (Vite)
+                "http://localhost:8100",   // Ionic mobile (dev)
+                "http://localhost:4200"    // Angular (por si acaso)
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials(); // OBLIGATORIO para SignalR WebSockets
+    });
+});
+
+// ── SIGNALR ───────────────────────────────────────────────────────────
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true; // Útil en desarrollo para ver errores en el cliente
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
+
+// ── CONTROLADORES + OPENAPI ───────────────────────────────────────────
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ── PIPELINE ──────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// IMPORTANTE: UseCors debe ir ANTES de UseRouting y MapHub
+app.UseCors("AllowFrontends");
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseAuthorization();
+app.MapControllers();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+// ── HUB SIGNALR ───────────────────────────────────────────────────────
+// Los clientes se conectarán a: http://localhost:5009/hubs/incident
+app.MapHub<IncidentHub>("/hubs/incident");
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
