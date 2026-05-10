@@ -22,7 +22,8 @@ builder.Services.AddCors(options =>
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
-            .AllowCredentials(); // OBLIGATORIO para SignalR WebSockets
+            .AllowCredentials() // OBLIGATORIO para SignalR WebSockets
+            .SetIsOriginAllowed(origin => true); // Permite pruebas locales (file:// o Live Server)
     });
 });
 
@@ -53,7 +54,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ── HUB SIGNALR ───────────────────────────────────────────────────────
-// Los clientes se conectarán a: http://localhost:5009/hubs/incident
+// Los clientes se conectarán a: http://localhost:5199/hubs/incident
 app.MapHub<IncidentHub>("/hubs/incident");
 
 app.Run();

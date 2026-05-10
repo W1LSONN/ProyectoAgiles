@@ -1,18 +1,22 @@
 using Microsoft.AspNetCore.SignalR;
+using NotificationService.Data;
+using NotificationService.Models;
 
 namespace NotificationService.Hubs;
 
 /// <summary>
 /// Hub principal de SignalR para notificaciones de incidentes de seguridad.
-/// Los clientes se conectan a: ws://localhost:5009/hubs/incident
+/// Los clientes se conectan a: ws://localhost:5199/hubs/incident
 /// </summary>
 public class IncidentHub : Hub<IIncidentClient>
 {
     private readonly ILogger<IncidentHub> _logger;
+    private readonly AppDbContext _context;
 
-    public IncidentHub(ILogger<IncidentHub> logger)
+    public IncidentHub(ILogger<IncidentHub> logger, AppDbContext context)
     {
         _logger = logger;
+        _context = context;
     }
 
     // ── Conexión ─────────────────────────────────────────────────────
@@ -73,6 +77,26 @@ public class IncidentHub : Hub<IIncidentClient>
             "Enviando alerta a grupo 'Guardias': Incidente {IdIncidente} — {TipoIncidente}",
             alerta.IdIncidente, alerta.TipoIncidente);
 
+        try
+        {
+            // 1. Guardar la notificación en la Base de Datos
+            var nuevaNotificacion = new Notificacion 
+            {
+                IdIncidente = alerta.IdIncidente,
+                IdReceptor = 0, // Como es un envío a un grupo general, usamos 0
+                TipoReceptor = "Guardias",
+                Mensaje = alerta.Mensaje,
+                FechaEnvio = DateTime.Now
+            };
+            _context.Notificaciones.Add(nuevaNotificacion);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al guardar la notificación de guardias en la base de datos.");
+        }
+
+        // 2. Transmitir en tiempo real a los guardias conectados
         await Clients.Group("Guardias").RecibirAlertaIncidente(alerta);
     }
 
@@ -85,6 +109,24 @@ public class IncidentHub : Hub<IIncidentClient>
         _logger.LogInformation(
             "Enviando alerta al grupo de confianza '{Grupo}': Incidente {IdIncidente}",
             nombreGrupo, alerta.IdIncidente);
+
+        try
+        {
+            var nuevaNotificacion = new Notificacion 
+            {
+                IdIncidente = alerta.IdIncidente,
+                IdReceptor = 0,
+                TipoReceptor = "GrupoConfianza",
+                Mensaje = $"[Grupo {nombreGrupo}] {alerta.Mensaje}",
+                FechaEnvio = DateTime.Now
+            };
+            _context.Notificaciones.Add(nuevaNotificacion);
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al guardar la notificación de grupo en la base de datos.");
+        }
 
         await Clients.Group(nombreGrupo).RecibirAlertaIncidente(alerta);
     }
