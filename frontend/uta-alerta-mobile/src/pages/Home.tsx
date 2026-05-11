@@ -6,9 +6,11 @@ import {
 import { wifiOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import './Home.css';
+import { crearIncidente } from '../services/incidentService';
 
 // Tipo para los datos del usuario guardados en localStorage
 interface UsuarioData {
+  idUsuario: number;
   nombre: string;
   correo: string;
   rol: string;
@@ -31,7 +33,7 @@ const Home: React.FC = () => {
       return;
     }
     setUsuario(JSON.parse(raw));
-  }, []);
+  }, [history]);
 
   // ── Selector de motivo ───────────────────────────────────────────
   const [motivo, setMotivo] = useState<string>('Alerta de seguridad');
@@ -40,8 +42,10 @@ const Home: React.FC = () => {
   const [progreso, setProgreso] = useState<number>(0);
   const [activado, setActivado] = useState<boolean>(false);
   const [presionando, setPresionando] = useState<boolean>(false);
+  const [enviando, setEnviando] = useState<boolean>(false);
+  const [errorAlerta, setErrorAlerta] = useState<string | null>(null);
 
-  const intervaloRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const intervaloRef = useRef<any>(null);
   const progresoRef = useRef<number>(0);
 
   const iniciarPresion = () => {
@@ -54,28 +58,45 @@ const Home: React.FC = () => {
       setProgreso(Math.min(progresoRef.current, 100));
 
       if (progresoRef.current >= 100) {
-        clearInterval(intervaloRef.current!);
+        clearInterval(intervaloRef.current);
         setPresionando(false);
-        setActivado(true);
+        // setActivado lo maneja ahora dispararAlerta() después del POST exitoso
         dispararAlerta();
       }
     }, 50);
   };
 
   const cancelarPresion = () => {
+    if (enviando || activado || progresoRef.current >= 100) return;
     if (intervaloRef.current) clearInterval(intervaloRef.current);
     setPresionando(false);
     setProgreso(0);
     progresoRef.current = 0;
   };
 
-  const dispararAlerta = () => {
-    // Por ahora solo log — en T-10 se conecta al endpoint POST /incidents
-    console.log('🚨 ALERTA DISPARADA:', {
-      motivo,
-      usuario: usuario?.nombre,
-      timestamp: new Date().toISOString()
-    });
+  const dispararAlerta = async () => {
+    if (!usuario) return;
+    setEnviando(true);
+    setErrorAlerta(null);
+
+    try {
+      await crearIncidente(
+        {
+          idUsuario: usuario.idUsuario,
+          idZona: 1,
+          tipoIncidente: motivo,
+          descripcion: `Alerta disparada desde app móvil — motivo: ${motivo}`,
+        },
+        usuario.token
+      );
+      setActivado(true);
+    } catch (error) {
+      const e = error as Error;
+      setErrorAlerta(e.message || 'No se pudo enviar la alerta. Verifica tu conexión.');
+      setActivado(false);
+    } finally {
+      setEnviando(false);
+    }
   };
 
   const resetear = () => {
@@ -143,6 +164,23 @@ const Home: React.FC = () => {
               <IonSelectOption value="Alerta de seguridad">Alerta de seguridad</IonSelectOption>
             </IonSelect>
           </div>
+
+          {/* Spinner mientras se envía */}
+          {enviando && (
+            <div style={{ textAlign: 'center', marginTop: 12, color: '#fff', fontSize: 14 }}>
+              Enviando alerta...
+            </div>
+          )}
+
+          {/* Error si el POST falló */}
+          {errorAlerta && (
+            <div style={{
+              background: 'rgba(0,0,0,0.4)', borderRadius: 8, padding: '10px 16px',
+              color: '#fca5a5', fontSize: 13, textAlign: 'center', marginBottom: 12
+            }}>
+              ⚠️ {errorAlerta}
+            </div>
+          )}
 
           {/* ── BOTÓN SOS / ESTADO ACTIVADO ── */}
           {!activado ? (

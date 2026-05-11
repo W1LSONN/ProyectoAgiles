@@ -39,19 +39,16 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// ── PIPELINE (ORDEN CORRECTO PARA SIGNALR) ────────────────────────────
+// ── PIPELINE ──────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// 1. Routing primero — necesario para que SignalR mapee el Hub
-app.UseRouting();
-
-// 2. CORS después de Routing y ANTES de los endpoints
+// IMPORTANTE: UseCors debe ir ANTES de UseRouting y MapHub
 app.UseCors("AllowFrontends");
 
-// 3. Endpoints: controladores REST y Hub SignalR
+app.UseAuthorization();
 app.MapControllers();
 app.MapHub<IncidentHub>("/hubs/incident");
 
