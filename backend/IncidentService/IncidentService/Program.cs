@@ -22,6 +22,15 @@ builder.Services.AddCors(options =>
     });
 });
 
+// ── CLIENTE HTTP HACIA NOTIFICATIONSERVICE ────────────────────────────
+builder.Services.AddHttpClient<IncidentService.Services.NotificationClient>(client =>
+{
+    client.BaseAddress = new Uri(
+        builder.Configuration["NotificationService:BaseUrl"]
+        ?? "http://localhost:5009");
+});
+
+
 // ── CONTROLADORES + SWAGGER ───────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
