@@ -1,0 +1,208 @@
+/* ═══════════════════════════════════════════
+   LOGIN WEB — UTA Alerta
+   Estilo limpio, fondo gris claro, card blanca
+═══════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+.login-page {
+    min-height: 100vh;
+    background: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+    padding: 20px;
+}
+
+/* ── CARD ── */
+.login-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ── BRAND ── */
+.login-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.brand-icon {
+    font-size: 1.8rem;
+}
+
+.brand-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    letter-spacing: 0.5px;
+}
+
+/* ── TÍTULOS ── */
+.login-titulo {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.login-subtitulo {
+    font-size: 0.8rem;
+    color: #999;
+    text-align: center;
+    margin-bottom: 20px;
+    max-width: 260px;
+    line-height: 1.4;
+}
+
+/* ── FORM ── */
+.login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.campo-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.campo-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e74c3c;
+    letter-spacing: 0.3px;
+}
+
+.campo-input {
+    width: 100%;
+    border: none;
+    border-bottom: 1.5px solid #ddd;
+    padding: 8px 0;
+    font-size: 0.95rem;
+    font-family: 'Inter', sans-serif;
+    color: #222;
+    background: transparent;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.campo-input:focus {
+    border-bottom-color: #e74c3c;
+}
+
+.campo-input::placeholder {
+    color: #bbb;
+}
+
+/* ── PASSWORD ── */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper .campo-input {
+    padding-right: 36px;
+}
+
+.ojo-btn {
+    position: absolute;
+    right: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: #aaa;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.ojo-btn:hover {
+    color: #666;
+}
+
+/* ── ERROR ── */
+.login-error {
+    font-size: 0.82rem;
+    color: #e74c3c;
+    background: #fef2f2;
+    border-left: 3px solid #e74c3c;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: -8px;
+}
+
+/* ── BOTÓN ── */
+.btn-signin {
+    width: 100%;
+    padding: 14px;
+    background: #e74c3c;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.btn-signin:hover:not(:disabled) {
+    background: #c0392b;
+}
+
+.btn-signin:active:not(:disabled) {
+    transform: scale(0.98);
+}
+
+.btn-signin:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* ── SPINNER ── */
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── FOOTER ── */
+.login-footer {
+    font-size: 0.75rem;
+    color: #bbb;
+    text-align: center;
+    margin-top: 16px;
+}
