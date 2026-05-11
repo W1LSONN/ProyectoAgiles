@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using IncidentService.Data;
 using IncidentService.DTOs;
 using IncidentService.Models;
+using IncidentService.Services;
 
 namespace IncidentService.Controllers;
 
@@ -12,11 +13,13 @@ public class IncidentsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ILogger<IncidentsController> _logger;
+    private readonly NotificationClient _notificationClient; 
 
-    public IncidentsController(AppDbContext context, ILogger<IncidentsController> logger)
+    public IncidentsController(AppDbContext context, ILogger<IncidentsController> logger,NotificationClient notificationClient)
     {
         _context = context;
         _logger = logger;
+        _notificationClient = notificationClient;   
     }
 
     [HttpPost]
@@ -46,6 +49,19 @@ public class IncidentsController : ControllerBase
         _context.Incidentes.Add(nuevoIncidente);
         await _context.SaveChangesAsync();
 
+        // Obtener el nombre de la zona para enviarlo en la notificación
+        var zona = await _context.Zonas.FindAsync(nuevoIncidente.IdZona);
+        await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
+        {
+            IdIncidente   = nuevoIncidente.IdIncidente,
+            NombreUsuario = $"Usuario #{nuevoIncidente.IdUsuario}",  // en T-15 se puede mejorar con el nombre real
+            Facultad      = zona?.Nombre ?? "UTA",
+            Zona          = zona?.Nombre ?? $"Zona {nuevoIncidente.IdZona}",
+            TipoIncidente = nuevoIncidente.TipoIncidente,
+            FechaReporte  = nuevoIncidente.FechaReporte
+        });
+
+        
         _logger.LogInformation(
             "Incidente creado: ID={IdIncidente}, Usuario={IdUsuario}, Zona={IdZona}, Tipo={Tipo}",
             nuevoIncidente.IdIncidente,
