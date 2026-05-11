@@ -148,11 +148,6 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* ESTADO CONEXIÓN */}
-        <div className={`conexion-pill ${conectado ? 'online' : 'offline'}`}>
-          <span className="conexion-dot" />
-          {conectado ? 'Conectado en tiempo real' : 'Reconectando...'}
-        </div>
 
         {error && <div className="error-banner">{error}</div>}
 

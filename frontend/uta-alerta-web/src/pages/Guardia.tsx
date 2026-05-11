@@ -14,14 +14,6 @@ const Guardia = () => {
       <p style={{ color: '#666', marginBottom: 16 }}>
         Bienvenido, <strong>{usuario.nombre}</strong>
       </p>
-      <div style={{
-        display: 'inline-block', padding: '4px 14px', borderRadius: 20,
-        background: conectado ? '#d1fae5' : '#fee2e2',
-        color: conectado ? '#065f46' : '#991b1b',
-        fontSize: '0.8rem', fontWeight: 500, marginBottom: 24
-      }}>
-        {conectado ? '🟢 Conectado' : '🔴 Reconectando...'}
-      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {alertas.length === 0 ? (
