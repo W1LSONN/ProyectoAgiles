@@ -40,7 +40,14 @@ const Login: React.FC = () => {
 
             // Guardar token y datos del usuario
             localStorage.setItem('token', data.token);
-            localStorage.setItem('usuario', JSON.stringify(data));
+            localStorage.setItem('usuario', JSON.stringify({
+                idUsuario: data.idUsuario,
+                nombre: data.nombre,
+                correo: data.correo,
+                rol: data.rol,
+                facultad: data.facultad,
+                token: data.token
+            }));
 
             // Redirigir según el rol
             if (data.rol === 'Guardia') {
@@ -51,7 +58,7 @@ const Login: React.FC = () => {
                 history.push('/home');
             }
 
-        } catch (e) {
+        } catch {
             setError('Error de conexión. Verifica tu internet.');
         } finally {
             setCargando(false);

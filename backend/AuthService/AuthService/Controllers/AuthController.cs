@@ -42,6 +42,7 @@ public class AuthController : ControllerBase
 
         return Ok(new LoginResponse
         {
+            IdUsuario = usuario.IdUsuario,
             Token = token,
             Nombre = usuario.Nombre,
             Correo = usuario.Correo,
