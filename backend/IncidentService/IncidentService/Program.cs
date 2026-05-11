@@ -3,10 +3,11 @@ using IncidentService.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── BASE DE DATOS ─────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-
+// ── CORS ──────────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontends", policy =>
@@ -14,13 +15,14 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins(
                 "http://localhost:5173",  // React web (Vite)
-                "http://localhost:8100"   // Ionic mobile (dev)
+                "http://localhost:8100"   // Ionic mobile
             )
             .AllowAnyMethod()
             .AllowAnyHeader();
     });
 });
 
+// ── CONTROLADORES + SWAGGER ───────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
@@ -31,8 +33,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// IMPORTANTE: UseCors va antes de MapControllers
+// UseRouting antes de UseCors para que CORS funcione con los endpoints
+app.UseRouting();
 app.UseCors("AllowFrontends");
-
 app.MapControllers();
 app.Run();

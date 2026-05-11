@@ -22,31 +22,27 @@ public class IncidentsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CrearIncidente([FromBody] CrearIncidenteRequest request)
     {
-        // 1. Validar modelo (los [Required] y [Range] del DTO se validan aquí)
         if (!ModelState.IsValid)
         {
             return BadRequest(ModelState);
         }
 
-        // 2. Verificar que la zona existe en la BD
         var zonaExiste = await _context.Zonas.AnyAsync(z => z.IdZona == request.IdZona && z.Activa);
         if (!zonaExiste)
         {
             return BadRequest(new { mensaje = $"La zona con ID {request.IdZona} no existe o no está activa." });
         }
 
-        // 3. Crear la entidad Incidente
         var nuevoIncidente = new Incidente
         {
-            IdUsuario    = request.IdUsuario,
-            IdZona       = request.IdZona,
+            IdUsuario     = request.IdUsuario,
+            IdZona        = request.IdZona,
             TipoIncidente = request.TipoIncidente,
-            Descripcion  = request.Descripcion,
-            Estado       = "Activo",
-            FechaReporte = DateTime.Now
+            Descripcion   = request.Descripcion,
+            Estado        = "Activo",
+            FechaReporte  = DateTime.Now
         };
 
-        // 4. Guardar en la base de datos
         _context.Incidentes.Add(nuevoIncidente);
         await _context.SaveChangesAsync();
 
@@ -57,7 +53,6 @@ public class IncidentsController : ControllerBase
             nuevoIncidente.IdZona,
             nuevoIncidente.TipoIncidente);
 
-        // 5. Retornar el ID del incidente creado (necesario para T-13)
         return CreatedAtAction(
             nameof(ObtenerIncidente),
             new { id = nuevoIncidente.IdIncidente },

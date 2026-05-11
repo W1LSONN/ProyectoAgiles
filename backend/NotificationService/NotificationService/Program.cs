@@ -9,7 +9,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ── CORS ──────────────────────────────────────────────────────────────
-// Permite conexiones desde el frontend web (5173) y la app móvil (8100)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontends", policy =>
@@ -29,7 +28,7 @@ builder.Services.AddCors(options =>
 // ── SIGNALR ───────────────────────────────────────────────────────────
 builder.Services.AddSignalR(options =>
 {
-    options.EnableDetailedErrors = true; // Útil en desarrollo para ver errores en el cliente
+    options.EnableDetailedErrors = true;
     options.KeepAliveInterval = TimeSpan.FromSeconds(15);
     options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
 });
@@ -40,20 +39,20 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// ── PIPELINE ──────────────────────────────────────────────────────────
+// ── PIPELINE (ORDEN CORRECTO PARA SIGNALR) ────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// IMPORTANTE: UseCors debe ir ANTES de UseRouting y MapHub
+// 1. Routing primero — necesario para que SignalR mapee el Hub
+app.UseRouting();
+
+// 2. CORS después de Routing y ANTES de los endpoints
 app.UseCors("AllowFrontends");
 
-app.UseAuthorization();
+// 3. Endpoints: controladores REST y Hub SignalR
 app.MapControllers();
-
-// ── HUB SIGNALR ───────────────────────────────────────────────────────
-// Los clientes se conectarán a: http://localhost:5009/hubs/incident
 app.MapHub<IncidentHub>("/hubs/incident");
 
 app.Run();
