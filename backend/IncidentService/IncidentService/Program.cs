@@ -28,12 +28,12 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// ── PIPELINE ──────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+// UseRouting antes de UseCors para que CORS funcione con los endpoints
 app.UseRouting();
 app.UseCors("AllowFrontends");
 app.MapControllers();

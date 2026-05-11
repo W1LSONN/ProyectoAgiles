@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IncidentService.Data;
+using IncidentService.DTOs;
 using IncidentService.Models;
 
 namespace IncidentService.Controllers;
@@ -10,23 +11,29 @@ namespace IncidentService.Controllers;
 public class IncidentsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<IncidentsController> _logger;
 
-    public IncidentsController(AppDbContext context)
+    public IncidentsController(AppDbContext context, ILogger<IncidentsController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
-    // POST api/incidents — crear nuevo incidente
     [HttpPost]
-    public async Task<IActionResult> CrearIncidente([FromBody] CrearIncidenteDto request)
+    public async Task<IActionResult> CrearIncidente([FromBody] CrearIncidenteRequest request)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
         var zonaExiste = await _context.Zonas.AnyAsync(z => z.IdZona == request.IdZona && z.Activa);
         if (!zonaExiste)
-            return BadRequest(new { mensaje = $"La zona {request.IdZona} no existe o no está activa." });
+        {
+            return BadRequest(new { mensaje = $"La zona con ID {request.IdZona} no existe o no está activa." });
+        }
 
-        var incidente = new Incidente
+        var nuevoIncidente = new Incidente
         {
             IdUsuario     = request.IdUsuario,
             IdZona        = request.IdZona,
@@ -36,44 +43,57 @@ public class IncidentsController : ControllerBase
             FechaReporte  = DateTime.Now
         };
 
-        _context.Incidentes.Add(incidente);
+        _context.Incidentes.Add(nuevoIncidente);
         await _context.SaveChangesAsync();
 
-        return CreatedAtAction(nameof(ObtenerIncidente), new { id = incidente.IdIncidente }, new
-        {
-            idIncidente   = incidente.IdIncidente,
-            idUsuario     = incidente.IdUsuario,
-            idZona        = incidente.IdZona,
-            tipoIncidente = incidente.TipoIncidente,
-            estado        = incidente.Estado,
-            fechaReporte  = incidente.FechaReporte,
-            mensaje       = "Incidente creado exitosamente."
-        });
+        _logger.LogInformation(
+            "Incidente creado: ID={IdIncidente}, Usuario={IdUsuario}, Zona={IdZona}, Tipo={Tipo}",
+            nuevoIncidente.IdIncidente,
+            nuevoIncidente.IdUsuario,
+            nuevoIncidente.IdZona,
+            nuevoIncidente.TipoIncidente);
+
+        return CreatedAtAction(
+            nameof(ObtenerIncidente),
+            new { id = nuevoIncidente.IdIncidente },
+            new
+            {
+                idIncidente   = nuevoIncidente.IdIncidente,
+                idUsuario     = nuevoIncidente.IdUsuario,
+                idZona        = nuevoIncidente.IdZona,
+                tipoIncidente = nuevoIncidente.TipoIncidente,
+                estado        = nuevoIncidente.Estado,
+                fechaReporte  = nuevoIncidente.FechaReporte,
+                mensaje       = "Incidente creado exitosamente."
+            });
     }
 
-    // GET api/incidents/{id}
     [HttpGet("{id}")]
     public async Task<IActionResult> ObtenerIncidente(int id)
     {
-        var i = await _context.Incidentes.Include(x => x.Zona).FirstOrDefaultAsync(x => x.IdIncidente == id);
-        if (i == null) return NotFound();
+        var incidente = await _context.Incidentes
+            .Include(i => i.Zona)
+            .FirstOrDefaultAsync(i => i.IdIncidente == id);
+
+        if (incidente == null)
+            return NotFound(new { mensaje = $"Incidente {id} no encontrado." });
+
         return Ok(new
         {
-            idIncidente   = i.IdIncidente,
-            idUsuario     = i.IdUsuario,
-            zona          = i.Zona.Nombre,
-            tipoIncidente = i.TipoIncidente,
-            descripcion   = i.Descripcion,
-            estado        = i.Estado,
-            fechaReporte  = i.FechaReporte
+            idIncidente   = incidente.IdIncidente,
+            idUsuario     = incidente.IdUsuario,
+            zona          = incidente.Zona.Nombre,
+            tipoIncidente = incidente.TipoIncidente,
+            descripcion   = incidente.Descripcion,
+            estado        = incidente.Estado,
+            fechaReporte  = incidente.FechaReporte
         });
     }
 
-    // GET api/incidents — listar todos
     [HttpGet]
     public async Task<IActionResult> ListarIncidentes()
     {
-        var lista = await _context.Incidentes
+        var incidentes = await _context.Incidentes
             .Include(i => i.Zona)
             .OrderByDescending(i => i.FechaReporte)
             .Select(i => new
@@ -87,15 +107,6 @@ public class IncidentsController : ControllerBase
             })
             .ToListAsync();
 
-        return Ok(lista);
+        return Ok(incidentes);
     }
-}
-
-// DTO inline para no necesitar carpeta DTOs por ahora
-public class CrearIncidenteDto
-{
-    public int IdUsuario { get; set; }
-    public int IdZona { get; set; }
-    public string TipoIncidente { get; set; } = string.Empty;
-    public string? Descripcion { get; set; }
 }
