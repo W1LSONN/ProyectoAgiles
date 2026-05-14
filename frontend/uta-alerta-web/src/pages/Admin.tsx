@@ -26,7 +26,7 @@ const Admin = () => {
           zona: i.zona ?? '—',
           tipoIncidente: i.tipoIncidente,
           mensaje: i.tipoIncidente,
-          fechaReporte: i.fechaReporte,
+          fechaReporte: i.fechaReporte
         }));
         setIncidentesDB(mapeados);
       })

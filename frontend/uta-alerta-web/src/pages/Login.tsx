@@ -109,7 +109,7 @@ const Login = () => {
                 onClick={() => setMostrarPassword(!mostrarPassword)}
                 aria-label="Mostrar/ocultar contraseña"
               >
-                {mostrarPassword ? '🙈' : '👁️'}
+                {mostrarPassword ? 'Hide ' : 'Show'}
               </button>
             </div>
           </div>

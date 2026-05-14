@@ -72,7 +72,17 @@ public static class UsuarioSeeder
                 Disponible = true,
                 Estado = "Activo",
                 FechaRegistro = new DateTime(2026, 1, 1)
-            }
+            },
+            new Usuario { IdUsuario = 6, Nombre = "Estudiante 1", Correo = "estudiante1@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 7, Nombre = "Estudiante 2", Correo = "estudiante2@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 8, Nombre = "Estudiante 3", Correo = "estudiante3@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 9, Nombre = "Estudiante 4", Correo = "estudiante4@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 10, Nombre = "Estudiante 5", Correo = "estudiante5@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 11, Nombre = "Estudiante 6", Correo = "estudiante6@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 12, Nombre = "Estudiante 7", Correo = "estudiante7@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 13, Nombre = "Estudiante 8", Correo = "estudiante8@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 14, Nombre = "Estudiante 9", Correo = "estudiante9@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) },
+            new Usuario { IdUsuario = 15, Nombre = "Estudiante 10", Correo = "estudiante10@uta.edu.ec", ContrasenaHash = "$2a$11$CLFV2MnHCrdx1a5kgYlOcOrKgq.UpTtg3IXWtLEiOUxEa2qq0eKpW", Facultad = "FISEI", IdRol = 3, Disponible = true, Estado = "Activo", FechaRegistro = new DateTime(2026, 1, 1) }
         );
     }
 }
