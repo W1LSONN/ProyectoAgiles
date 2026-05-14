@@ -1,0 +1,284 @@
+/* ═══════════════════════════════════════════════
+   HOME — UTA Alerta  |  Botón de Pánico
+   Fiel al mockup: fondo blanco, botón rojo
+═══════════════════════════════════════════════ */
+
+/* Fondo blanco como en el mockup */
+.home-content {
+    --background: #f5f5f5;
+}
+
+/* ── HEADER ── */
+.home-header {
+    background: #ffffff;
+    padding: 48px 20px 0 20px;
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.header-menu {
+    font-size: 1.3rem;
+    color: #222222;
+    cursor: pointer;
+}
+
+.header-titulo {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #222222;
+    font-family: 'Inter', sans-serif;
+}
+
+.header-datos {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 16px;
+}
+
+.dato-fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dato-label {
+    font-size: 0.88rem;
+    color: #666666;
+    font-family: 'Inter', sans-serif;
+    min-width: 70px;
+}
+
+.dato-valor {
+    font-size: 0.88rem;
+    color: #222222;
+    font-family: 'Inter', sans-serif;
+}
+
+.rol-texto {
+    font-weight: 700;
+    color: #222222;
+}
+
+.header-separador {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 0 -20px;
+}
+
+/* ── CUERPO ── */
+.home-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 24px 32px 24px;
+    gap: 20px;
+    background: #f5f5f5;
+}
+
+/* ── INSTRUCCIÓN ── */
+.instruccion-texto {
+    text-align: center;
+}
+
+.instruccion-texto p {
+    margin: 0;
+    font-size: 1rem;
+    color: #333333;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+}
+
+.instruccion-texto strong {
+    color: #111111;
+}
+
+/* ── SELECTOR DE MOTIVO ── */
+.motivo-wrapper {
+    width: 100%;
+    max-width: 320px;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 2px 8px;
+}
+
+.motivo-select {
+    --color: #333333;
+    --placeholder-color: #888888;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.92rem;
+    width: 100%;
+}
+
+/* ── CONTENEDOR SOS ── */
+.sos-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.sos-container {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #e74c3c 0%, #c0392b 55%, #a93226 100%);
+    box-shadow:
+        0 6px 0 #922b21,
+        0 10px 20px rgba(192, 57, 43, 0.35);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Cuando se está presionando */
+.sos-container.presionando {
+    transform: scale(0.95) translateY(4px);
+    box-shadow:
+        0 2px 0 #922b21,
+        0 6px 14px rgba(192, 57, 43, 0.4);
+}
+
+/* SVG del círculo de progreso */
+.sos-svg {
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    width: 220px;
+    height: 220px;
+    pointer-events: none;
+}
+
+/* Contenido interior */
+.sos-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    z-index: 1;
+}
+
+.sos-wifi-icon {
+    font-size: 1.8rem;
+    color: #ffffff;
+    margin-bottom: 2px;
+    opacity: 0.9;
+}
+
+.sos-texto {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 4px;
+    line-height: 1;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.sos-subtexto {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 3px;
+}
+
+/* ── TEXTO "Reportar incidente" ── */
+.reportar-texto {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333333;
+    font-family: 'Inter', sans-serif;
+    text-align: center;
+}
+
+/* ── ESTADO ALERTA ENVIADA ── */
+.alerta-enviada {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    padding: 20px;
+    animation: fadeInUp 0.4s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.check-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #27ae60;
+    color: #ffffff;
+    font-size: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(39, 174, 96, 0.35);
+}
+
+.enviada-titulo {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #111111;
+    font-family: 'Inter', sans-serif;
+}
+
+.enviada-motivo {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #555555;
+    font-family: 'Inter', sans-serif;
+}
+
+.enviada-sub {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #888888;
+    font-family: 'Inter', sans-serif;
+    max-width: 260px;
+    line-height: 1.5;
+}
+
+.btn-nueva-alerta {
+    margin-top: 8px;
+    padding: 10px 28px;
+    border: 1.5px solid #c0392b;
+    background: transparent;
+    color: #c0392b;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-nueva-alerta:hover {
+    background: #c0392b;
+    color: #ffffff;
+}

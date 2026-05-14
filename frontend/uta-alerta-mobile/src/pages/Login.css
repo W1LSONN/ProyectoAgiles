@@ -1,0 +1,80 @@
+.login-content {
+    --background: #ffffff;
+}
+
+.login-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    padding: 40px 32px;
+}
+
+.login-titulo {
+    font-size: 28px;
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 48px;
+    text-align: center;
+}
+
+.login-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.input-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.input-label {
+    font-size: 13px;
+    color: #e05c6a;
+    font-weight: 500;
+}
+
+.login-input {
+    --padding-start: 0;
+    --padding-end: 0;
+    font-size: 15px;
+    color: #333;
+}
+
+.input-linea {
+    height: 1px;
+    background-color: #ccc;
+    margin-top: 4px;
+}
+
+.password-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.ojo-icon {
+    font-size: 20px;
+    color: #aaa;
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+.btn-signin {
+    --background: #e05c6a;
+    --border-radius: 30px;
+    --color: white;
+    font-size: 16px;
+    font-weight: 600;
+    height: 50px;
+    margin-top: 16px;
+}
+
+.error-msg {
+    font-size: 13px;
+    text-align: center;
+    margin: 0;
+}

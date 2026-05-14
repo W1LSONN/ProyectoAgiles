@@ -1,0 +1,18 @@
+# .NET
+**/bin/
+**/obj/
+**/*.user
+**/.vs/
+
+# Node
+node_modules/
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/
+
+# Capacitor Android (generado automáticamente)
+frontend/uta-alerta-mobile/android/
+frontend/uta-alerta-mobile/dist/
