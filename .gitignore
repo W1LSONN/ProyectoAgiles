@@ -16,3 +16,6 @@ node_modules/
 # Capacitor Android (generado automáticamente)
 frontend/uta-alerta-mobile/android/
 frontend/uta-alerta-mobile/dist/
+
+appsettings.json
+tsconfig.json
