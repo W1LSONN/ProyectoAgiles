@@ -25,10 +25,10 @@ const Admin = () => {
         const mapeados: AlertaIncidente[] = data.map(i => ({
           idIncidente: i.idIncidente,
           nombreUsuario: `Usuario #${i.idUsuario}`,
-          facultad: i.zona ?? '—',
-          zona: i.zona ?? '—',
+          facultad: i.zona || '—',
+          zona: i.idZona ? `Zona ${i.idZona}` : (i.zona || '—'),
           tipoIncidente: i.tipoIncidente,
-          mensaje: i.tipoIncidente,
+          mensaje: i.descripcion || i.mensaje || i.tipoIncidente,
           fechaReporte: i.fechaReporte
         }));
         setIncidentesDB(mapeados);
@@ -183,10 +183,10 @@ const Admin = () => {
                     ) : (
                       alertasPagina.map((a) => (
                         <tr key={a.idIncidente}>
-                          <td className="td-nombre">{a.nombreUsuario}</td>
+                      <td className="td-nombre">{a.nombreUsuario || `Usuario #${(a as any).idUsuario || '?'}`}</td>
                           <td>Estudiante</td>
-                          <td>{a.facultad}</td>
-                          <td>{a.zona}</td>
+                      <td>{a.facultad}</td>
+                      <td>{a.zona}</td>
                           <td>{a.tipoIncidente}</td>
                           <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
                           <td><span className="badge-activo">Activo</span></td>

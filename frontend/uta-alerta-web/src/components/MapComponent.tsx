@@ -6,14 +6,12 @@ import { ZONAS, getCentroPorZona, type Zona } from '../services/zonasService';
 import type { AlertaIncidente } from '../services/signalrService';
 import './MapComponent.css';
 
-// Icono por defecto de leaflet
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
+// Icono rojo personalizado para incidentes
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 
-const defaultIcon = L.icon({
-  iconUrl,
-  iconRetinaUrl,
+const redIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
   shadowUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -22,7 +20,7 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-L.Marker.prototype.setIcon(defaultIcon);
+L.Marker.prototype.setIcon(redIcon);
 
 interface MapComponentProps {
   incidentes: AlertaIncidente[];
@@ -31,24 +29,40 @@ interface MapComponentProps {
 
 const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
-  const [incidentesPorZona, setIncidentesPorZona] = useState<Map<string, AlertaIncidente[]>>(new Map());
 
-  // Agrupar incidentes por zona
-  useEffect(() => {
-    const mapa = new Map<string, AlertaIncidente[]>();
+  // Ayudante ultra robusto para ubicar la zona correcta sin importar cómo venga de la base de datos
+  const encontrarZona = (inc: any): Zona | undefined => {
+    const str = String(inc.zona || inc.idZona || '').toLowerCase().trim();
+    if (!str || str === '—') return undefined;
 
-    incidentes.forEach(incidente => {
-      const zona = incidente.zona;
-      if (zona) {
-        if (!mapa.has(zona)) {
-          mapa.set(zona, []);
-        }
-        mapa.get(zona)!.push(incidente);
-      }
+    return ZONAS.find(z => {
+      const id = z.id.toLowerCase();
+      const numMatch = str.match(/\d+/);
+      const num = numMatch ? numMatch[0] : null;
+      
+      if (id === str || z.nombre.toLowerCase() === str) return true;
+      if (num && id.includes(num)) return true;
+      if (str.includes('norte') && id.includes('1')) return true;
+      if (str.includes('sur') && id.includes('2')) return true;
+      if (str.includes('este') && id.includes('3')) return true;
+      if (str.includes('oeste') && id.includes('4')) return true;
+      return false;
     });
+  };
 
-    setIncidentesPorZona(mapa);
-  }, [incidentes]);
+  // Agrupar incidentes por zona (Calculado en tiempo real sin usar useEffect)
+  const incidentesPorZona: Record<string, AlertaIncidente[]> = {};
+
+  incidentes.forEach(incidente => {
+    const zonaMatch = encontrarZona(incidente);
+
+    if (zonaMatch) {
+      if (!incidentesPorZona[zonaMatch.id]) {
+        incidentesPorZona[zonaMatch.id] = [];
+      }
+      incidentesPorZona[zonaMatch.id].push(incidente);
+    }
+  });
 
   const handleZonaClick = (zona: Zona) => {
     setZonaActiva(zonaActiva === zona.id ? null : zona.id);
@@ -56,7 +70,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
   };
 
   const getCantidadIncidentes = (zonaId: string): number => {
-    return incidentesPorZona.get(zonaId)?.length ?? 0;
+    return incidentesPorZona[zonaId]?.length ?? 0;
   };
 
   return (
@@ -101,13 +115,23 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
           {/* Marcadores de incidentes */}
           {incidentes.map((incidente, idx) => {
-            // Generar coordenadas ficticias basadas en la zona
-            const zona = ZONAS.find(z => z.id === incidente.zona || z.nombre === incidente.zona);
+            const zona = encontrarZona(incidente);
             if (!zona) return null;
 
             const [latBase, longBase] = getCentroPorZona(zona.id);
-            const lat = latBase + (Math.random() - 0.5) * 0.0015;
-            const long = longBase + (Math.random() - 0.5) * 0.0015;
+            
+            // Coordenadas semi-aleatorias FIJAS basadas en el ID para evitar que los pines se borren
+            const idNum = incidente.idIncidente || idx;
+            const offsetLat = ((idNum * 13) % 100 - 50) * 0.00003;
+            const offsetLng = ((idNum * 17) % 100 - 50) * 0.00003;
+            const lat = latBase + offsetLat;
+            const long = longBase + offsetLng;
+
+            // Obtener el nombre descriptivo que viene desde la BD
+            const nombreBd = (incidente as any).facultad;
+            const textoZonaPopup = (nombreBd && nombreBd !== '—')
+              ? (nombreBd.toLowerCase().includes('zona') ? nombreBd : `${zona.nombre} — ${nombreBd}`)
+              : zona.nombre;
 
             return (
               <Marker
@@ -117,10 +141,10 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
                 <Popup>
                   <div className="popup-incidente">
                     <h5>{incidente.tipoIncidente}</h5>
-                    <p><strong>Zona:</strong> {incidente.zona}</p>
-                    <p><strong>Usuario:</strong> {incidente.nombreUsuario}</p>
+                      <p><strong>Zona:</strong> {textoZonaPopup}</p>
+                      <p><strong>Usuario:</strong> {incidente.nombreUsuario || `Usuario #${(incidente as any).idUsuario || '?'}`}</p>
                     <p><strong>Fecha:</strong> {new Date(incidente.fechaReporte).toLocaleString('es-EC')}</p>
-                    <p><strong>Descripción:</strong> {incidente.mensaje}</p>
+                      <p><strong>Descripción:</strong> {incidente.mensaje || (incidente as any).descripcion}</p>
                   </div>
                 </Popup>
               </Marker>
@@ -153,7 +177,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
           <div className="zona-incidentes">
             <h4>Incidentes en {ZONAS.find(z => z.id === zonaActiva)?.nombre}</h4>
             <div className="incidentes-list">
-              {(incidentesPorZona.get(zonaActiva) || []).map(inc => (
+              {(incidentesPorZona[zonaActiva] || []).map(inc => (
                 <div key={inc.idIncidente} className="incidente-item">
                   <strong>{inc.tipoIncidente}</strong>
                   <small>{inc.nombreUsuario} - {new Date(inc.fechaReporte).toLocaleString('es-EC')}</small>
