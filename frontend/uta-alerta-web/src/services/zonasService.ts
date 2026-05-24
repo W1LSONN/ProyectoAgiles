@@ -8,8 +8,8 @@ export interface Zona {
   coordenadas: [number, number][]; // [latitud, longitud]
 }
 
-// Centro aproximado de la UTA: -1.2524° (latitud), -78.6172° (longitud)
-const CENTRO_UTA: [number, number] = [-1.2524, -78.6172];
+// Centro del Campus Huachi UTA
+const CENTRO_UTA: [number, number] = [-1.2688, -78.6248];
 
 export const ZONAS: Zona[] = [
   {
@@ -17,10 +17,10 @@ export const ZONAS: Zona[] = [
     nombre: 'Zona Norte',
     color: '#FF6B6B', // Rojo
     coordenadas: [
-      [-1.2400, -78.6250],
-      [-1.2400, -78.6100],
-      [-1.2500, -78.6100],
-      [-1.2500, -78.6250],
+      [-1.2665, -78.6270],
+      [-1.2665, -78.6248],
+      [-1.2688, -78.6248],
+      [-1.2688, -78.6270],
     ],
   },
   {
@@ -28,10 +28,10 @@ export const ZONAS: Zona[] = [
     nombre: 'Zona Sur',
     color: '#4ECDC4', // Turquesa
     coordenadas: [
-      [-1.2600, -78.6250],
-      [-1.2600, -78.6100],
-      [-1.2700, -78.6100],
-      [-1.2700, -78.6250],
+      [-1.2688, -78.6248],
+      [-1.2688, -78.6220],
+      [-1.2710, -78.6220],
+      [-1.2710, -78.6248],
     ],
   },
   {
@@ -39,10 +39,10 @@ export const ZONAS: Zona[] = [
     nombre: 'Zona Este',
     color: '#45B7D1', // Azul
     coordenadas: [
-      [-1.2500, -78.6000],
-      [-1.2500, -78.5850],
-      [-1.2600, -78.5850],
-      [-1.2600, -78.6000],
+      [-1.2665, -78.6248],
+      [-1.2665, -78.6220],
+      [-1.2688, -78.6220],
+      [-1.2688, -78.6248],
     ],
   },
   {
@@ -50,10 +50,10 @@ export const ZONAS: Zona[] = [
     nombre: 'Zona Oeste',
     color: '#FFA502', // Naranja
     coordenadas: [
-      [-1.2500, -78.6350],
-      [-1.2500, -78.6200],
-      [-1.2600, -78.6200],
-      [-1.2600, -78.6350],
+      [-1.2688, -78.6270],
+      [-1.2688, -78.6248],
+      [-1.2710, -78.6248],
+      [-1.2710, -78.6270],
     ],
   },
 ];

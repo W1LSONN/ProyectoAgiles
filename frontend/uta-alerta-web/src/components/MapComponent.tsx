@@ -106,8 +106,8 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             if (!zona) return null;
 
             const [latBase, longBase] = getCentroPorZona(zona.id);
-            const lat = latBase + (Math.random() - 0.5) * 0.003;
-            const long = longBase + (Math.random() - 0.5) * 0.003;
+            const lat = latBase + (Math.random() - 0.5) * 0.0015;
+            const long = longBase + (Math.random() - 0.5) * 0.0015;
 
             return (
               <Marker
