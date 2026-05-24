@@ -50,4 +50,37 @@ public class AuthController : ControllerBase
             Facultad = usuario.Facultad
         });
     }
+
+    [HttpPut("usuarios/{id}/disponibilidad")]
+    public async Task<IActionResult> ToggleDisponibilidad(int id, [FromBody] ToggleDisponibilidadRequest? request)
+    {
+        var usuario = await _context.Usuarios
+            .Include(u => u.Rol)
+            .FirstOrDefaultAsync(u => u.IdUsuario == id);
+
+        if (usuario == null)
+        {
+            return NotFound(new { mensaje = $"Usuario con ID {id} no encontrado." });
+        }
+
+        if (request != null && request.Disponible.HasValue)
+        {
+            usuario.Disponible = request.Disponible.Value;
+        }
+        else
+        {
+            usuario.Disponible = !usuario.Disponible;
+        }
+
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            mensaje = "Disponibilidad actualizada exitosamente.",
+            idUsuario = usuario.IdUsuario,
+            nombre = usuario.Nombre,
+            rol = usuario.Rol.NombreRol,
+            disponible = usuario.Disponible
+        });
+    }
 }
