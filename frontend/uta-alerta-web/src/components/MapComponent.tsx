@@ -20,8 +20,6 @@ const redIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-L.Marker.prototype.setIcon(redIcon);
-
 interface MapComponentProps {
   incidentes: AlertaIncidente[];
   onZonaSeleccionada?: (zona: Zona) => void;
@@ -29,10 +27,11 @@ interface MapComponentProps {
 
 const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   // Ayudante ultra robusto para ubicar la zona correcta sin importar cómo venga de la base de datos
   const encontrarZona = (inc: any): Zona | undefined => {
-    const str = String(inc.zona || inc.idZona || '').toLowerCase().trim();
+    const str = String(inc.zona || inc.idZona || inc.IdZona || '').toLowerCase().trim();
     if (!str || str === '—') return undefined;
 
     return ZONAS.find(z => {
@@ -66,6 +65,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
   const handleZonaClick = (zona: Zona) => {
     setZonaActiva(zonaActiva === zona.id ? null : zona.id);
+    setMostrarTodos(false);
     onZonaSeleccionada?.(zona);
   };
 
@@ -121,9 +121,19 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             const [latBase, longBase] = getCentroPorZona(zona.id);
             
             // Coordenadas semi-aleatorias FIJAS basadas en el ID para evitar que los pines se borren
-            const idNum = incidente.idIncidente || idx;
-            const offsetLat = ((idNum * 13) % 100 - 50) * 0.00003;
-            const offsetLng = ((idNum * 17) % 100 - 50) * 0.00003;
+            let idNum = idx;
+            const incId = incidente.idIncidente as any;
+            if (typeof incId === 'number' && incId !== 0) {
+              idNum = incId;
+            } else if (typeof incId === 'string') {
+              idNum = incId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+            }
+            
+            // Mezclar con el índice para asegurar que los marcadores NUNCA se encimen exactamente
+            idNum = idNum + (idx * 37);
+
+            const offsetLat = ((idNum * 13) % 100 - 50) * 0.000004;
+            const offsetLng = ((idNum * 17) % 100 - 50) * 0.000004;
             const lat = latBase + offsetLat;
             const long = longBase + offsetLng;
 
@@ -137,6 +147,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
               <Marker
                 key={`${incidente.idIncidente}-${idx}`}
                 position={[lat, long] as L.LatLngExpression}
+                icon={redIcon}
               >
                 <Popup>
                   <div className="popup-incidente">
@@ -177,12 +188,25 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
           <div className="zona-incidentes">
             <h4>Incidentes en {ZONAS.find(z => z.id === zonaActiva)?.nombre}</h4>
             <div className="incidentes-list">
-              {(incidentesPorZona[zonaActiva] || []).map(inc => (
-                <div key={inc.idIncidente} className="incidente-item">
-                  <strong>{inc.tipoIncidente}</strong>
-                  <small>{inc.nombreUsuario} - {new Date(inc.fechaReporte).toLocaleString('es-EC')}</small>
-                </div>
-              ))}
+              {(incidentesPorZona[zonaActiva] || [])
+                .slice(0, mostrarTodos ? undefined : 20)
+                .map(inc => (
+                  <div key={inc.idIncidente} className="incidente-item">
+                    <strong>{inc.tipoIncidente}</strong>
+                    <small>{inc.nombreUsuario} - {new Date(inc.fechaReporte).toLocaleString('es-EC')}</small>
+                  </div>
+                ))}
+              
+              {!mostrarTodos && (incidentesPorZona[zonaActiva] || []).length > 20 && (
+                <button className="btn-ver-mas" onClick={() => setMostrarTodos(true)}>
+                  Ver más ({(incidentesPorZona[zonaActiva] || []).length - 20} ocultos)
+                </button>
+              )}
+              {mostrarTodos && (incidentesPorZona[zonaActiva] || []).length > 20 && (
+                <button className="btn-ver-mas" onClick={() => setMostrarTodos(false)}>
+                  Ver menos
+                </button>
+              )}
             </div>
           </div>
         )}
