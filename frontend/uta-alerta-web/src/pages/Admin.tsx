@@ -158,7 +158,14 @@ const Admin = () => {
           <h1 className="admin-titulo">
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
-            {seccion === 'camaras' && 'Administración de Cámaras'}
+            {seccion === 'camaras' && (
+              <>
+                Administración de Cámaras
+                <span style={{ fontSize: '0.85rem', color: '#666', marginLeft: '10px', fontWeight: 'normal' }}>
+                  (listado con datos simulados de prueba para cuando backend este listo)
+                </span>
+              </>
+            )}
             {seccion === 'customers' && 'Customers'}
           </h1>
 
