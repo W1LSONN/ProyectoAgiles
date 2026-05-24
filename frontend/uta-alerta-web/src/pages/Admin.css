@@ -430,6 +430,16 @@ body,
     padding: 48px 20px;
 }
 
+/* MapComponent estilos de integración */
+.content-card .map-component {
+    flex: 1;
+    height: 100%;
+    width: 100%;
+    border-radius: 0;
+    border: none;
+    display: flex;
+}
+
 /* ══════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════ */

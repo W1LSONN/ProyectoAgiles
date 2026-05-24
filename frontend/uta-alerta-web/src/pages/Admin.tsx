@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
+import MapComponent from '../components/MapComponent';
 import type { AlertaIncidente } from '../services/signalrService';
+import type { Zona } from '../services/zonasService';
 import './Admin.css';
 
 const ITEMS_POR_PAGINA = 10;
@@ -9,32 +11,52 @@ const ITEMS_POR_PAGINA = 10;
 const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas: alertasWS, conectado, error } = useSignalR('Admins');
+  const { alertas: alertasWS, error } = useSignalR('Admins');
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'customers'>('notificaciones');
+  const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
     fetch('http://localhost:5008/api/incidents')
       .then(r => r.json())
       .then((data: any[]) => {
-        const mapeados: AlertaIncidente[] = data.map(i => ({
-          idIncidente: i.idIncidente,
-          nombreUsuario: `Usuario #${i.idUsuario}`,
-          facultad: i.zona ?? '—',
-          zona: i.zona ?? '—',
-          tipoIncidente: i.tipoIncidente,
-          mensaje: i.tipoIncidente,
-          fechaReporte: i.fechaReporte
-        }));
+        const mapeados: AlertaIncidente[] = data.map(i => {
+          const rawIdZona = i.idZona || i.IdZona;
+          const rawZona = i.zona || i.Zona;
+          return {
+            idIncidente: i.idIncidente || i.IdIncidente,
+            nombreUsuario: `Usuario #${i.idUsuario || i.IdUsuario || '?'}`,
+            facultad: i.facultad || i.Facultad || rawZona || '—',
+            zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
+            tipoIncidente: i.tipoIncidente || i.TipoIncidente,
+            mensaje: i.descripcion || i.Descripcion || i.mensaje || i.Mensaje || i.tipoIncidente || i.TipoIncidente,
+            fechaReporte: i.fechaReporte || i.FechaReporte
+          };
+        });
         setIncidentesDB(mapeados);
       })
       .catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
   }, []);
 
   // Unir datos de BD + nuevas alertas SignalR (las nuevas van primero)
-  const alertas = [...alertasWS, ...incidentesDB];
+  const alertas = [
+    ...alertasWS.map((i, idx) => {
+      const rawIdZona = (i as any).idZona || (i as any).IdZona;
+      const rawZona = i.zona || (i as any).Zona;
+      return {
+        ...i,
+        idIncidente: i.idIncidente || (i as any).IdIncidente || -(idx + 1),
+        nombreUsuario: i.nombreUsuario || (i as any).NombreUsuario || `Usuario #${(i as any).idUsuario || (i as any).IdUsuario || '?'}`,
+        facultad: (i as any).facultad || (i as any).Facultad || rawZona || '—',
+        zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
+        mensaje: (i as any).descripcion || (i as any).Descripcion || i.mensaje || (i as any).Mensaje || i.tipoIncidente || (i as any).TipoIncidente,
+        fechaReporte: i.fechaReporte || (i as any).FechaReporte || new Date().toISOString()
+      };
+    }) as AlertaIncidente[],
+    ...incidentesDB
+  ];
 
   if (!usuario?.token) { navigate('/login'); return null; }
 
@@ -180,14 +202,14 @@ const Admin = () => {
                     ) : (
                       alertasPagina.map((a) => (
                         <tr key={a.idIncidente}>
-                          <td className="td-nombre">{a.nombreUsuario}</td>
+                      <td className="td-nombre">{a.nombreUsuario || `Usuario #${(a as any).idUsuario || '?'}`}</td>
                           <td>Estudiante</td>
-                          <td>{a.facultad}</td>
-                          <td>{a.zona}</td>
+                      <td>{a.facultad}</td>
+                      <td>{a.zona}</td>
                           <td>{a.tipoIncidente}</td>
                           <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
                           <td><span className="badge-activo">Activo</span></td>
-                          <td className="td-guardia">{a.guardiaAsignado ?? '—'}</td>
+                      <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
                         </tr>
                       ))
                     )}
@@ -217,10 +239,10 @@ const Admin = () => {
           )}
 
           {seccion === 'mapa' && (
-            <div className="seccion-placeholder">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
-              <p>Mapa del campus — próximamente</p>
-            </div>
+            <MapComponent 
+              incidentes={alertas}
+              onZonaSeleccionada={setZonaSeleccionada}
+            />
           )}
 
           {seccion === 'customers' && (
