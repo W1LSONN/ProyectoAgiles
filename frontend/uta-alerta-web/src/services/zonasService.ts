@@ -13,62 +13,63 @@ const CENTRO_UTA: [number, number] = [-1.2688, -78.6248];
 
 export const ZONAS: Zona[] = [
   {
-    id: 'zona-norte',
+    id: 'norte',
     nombre: 'Zona Norte',
-    color: '#FF6B6B', // Rojo
+    color: '#FF4444', // Rojo
     coordenadas: [
-      [-1.2665, -78.6270],
-      [-1.2665, -78.6248],
-      [-1.2688, -78.6248],
-      [-1.2688, -78.6270],
+      [-1.266416, -78.625299], // Esquina Noroeste
+      [-1.266498, -78.624148], // Medio Superior
+      [-1.268590, -78.624238], // Centro Absoluto
+      [-1.268400, -78.625831], // Medio Izquierdo
+      [-1.266416, -78.625299], // Cierre
     ],
   },
   {
-    id: 'zona-sur',
+    id: 'sur',
     nombre: 'Zona Sur',
-    color: '#4ECDC4', // Turquesa
+    color: '#44FF44', // Verde
     coordenadas: [
-      [-1.2688, -78.6248],
-      [-1.2688, -78.6220],
-      [-1.2710, -78.6220],
-      [-1.2710, -78.6248],
+      [-1.268590, -78.624238], // Centro Absoluto
+      [-1.268779, -78.622644], // Medio Derecho
+      [-1.270979, -78.622292], // Esquina Sureste
+      [-1.270681, -78.624328], // Medio Inferior
+      [-1.268590, -78.624238], // Cierre
     ],
   },
   {
-    id: 'zona-este',
+    id: 'este',
     nombre: 'Zona Este',
-    color: '#45B7D1', // Azul
+    color: '#4444FF', // Azul
     coordenadas: [
-      [-1.2665, -78.6248],
-      [-1.2665, -78.6220],
-      [-1.2688, -78.6220],
-      [-1.2688, -78.6248],
+      [-1.266498, -78.624148], // Medio Superior
+      [-1.266580, -78.622997], // Esquina Noreste
+      [-1.268779, -78.622644], // Medio Derecho
+      [-1.268590, -78.624238], // Centro Absoluto
+      [-1.266498, -78.624148], // Cierre
     ],
   },
   {
-    id: 'zona-oeste',
+    id: 'oeste',
     nombre: 'Zona Oeste',
-    color: '#FFA502', // Naranja
+    color: '#FFD700', // Amarillo
     coordenadas: [
-      [-1.2688, -78.6270],
-      [-1.2688, -78.6248],
-      [-1.2710, -78.6248],
-      [-1.2710, -78.6270],
+      [-1.268400, -78.625831], // Medio Izquierdo
+      [-1.268590, -78.624238], // Centro Absoluto
+      [-1.270681, -78.624328], // Medio Inferior
+      [-1.270384, -78.626364], // Esquina Suroeste
+      [-1.268400, -78.625831], // Cierre
     ],
   },
 ];
 
 export const getCentroPorZona = (zonaId: string): [number, number] => {
-  const zona = ZONAS.find(z => z.id === zonaId);
-  if (!zona) return CENTRO_UTA;
-
-  const lats = zona.coordenadas.map(([lat]) => lat);
-  const longs = zona.coordenadas.map(([, long]) => long);
-
-  const avgLat = lats.reduce((a, b) => a + b, 0) / lats.length;
-  const avgLong = longs.reduce((a, b) => a + b, 0) / longs.length;
-
-  return [avgLat, avgLong];
+  const centros: Record<string, [number, number]> = {
+    norte: [-1.267476, -78.624879],
+    sur: [-1.269757, -78.623375],
+    este: [-1.267611, -78.623506],
+    oeste: [-1.269513, -78.625190],
+  };
+  return centros[zonaId] || CENTRO_UTA;
 };
 
 export const getZonaPorCoordenadas = (lat: number, long: number): Zona | null => {
