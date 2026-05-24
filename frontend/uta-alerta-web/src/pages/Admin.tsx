@@ -8,6 +8,7 @@ import type { Zona } from '../services/zonasService';
 import './Admin.css';
 
 const ITEMS_POR_PAGINA = 10;
+const INCIDENTS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -17,29 +18,80 @@ const Admin = () => {
   const [pagina, setPagina] = useState(1);
   const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
+  const [asumiendoId, setAsumiendoId] = useState<number | null>(null);
+
+  const cargarIncidentes = async () => {
+    const response = await fetch(`${INCIDENTS_URL}/api/incidents`);
+    if (!response.ok) {
+      throw new Error(`Error ${response.status} al cargar incidentes`);
+    }
+
+    const data: any[] = await response.json();
+    const mapeados: AlertaIncidente[] = data.map((i) => {
+      const rawIdZona = i.idZona || i.IdZona;
+      const rawZona = i.zona || i.Zona;
+      return {
+        idIncidente: i.idIncidente || i.IdIncidente,
+        nombreUsuario: i.nombreUsuario || `Usuario #${i.idUsuario || i.IdUsuario || '?'}`,
+        facultad: i.facultad || i.Facultad || rawZona || '—',
+        zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
+        tipoIncidente: i.tipoIncidente || i.TipoIncidente,
+        mensaje: i.descripcion || i.Descripcion || i.mensaje || i.Mensaje || i.tipoIncidente || i.TipoIncidente,
+        fechaReporte: i.fechaReporte || i.FechaReporte,
+        estado: i.estado || i.Estado || 'Activo',
+        guardiaAsignado: i.guardiaAsignado || i.GuardiaAsignado || '—'
+      };
+    });
+
+    setIncidentesDB(mapeados);
+  };
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
-    fetch('http://localhost:5008/api/incidents')
-      .then(r => r.json())
-      .then((data: any[]) => {
-        const mapeados: AlertaIncidente[] = data.map(i => {
-          const rawIdZona = i.idZona || i.IdZona;
-          const rawZona = i.zona || i.Zona;
-          return {
-            idIncidente: i.idIncidente || i.IdIncidente,
-            nombreUsuario: `Usuario #${i.idUsuario || i.IdUsuario || '?'}`,
-            facultad: i.facultad || i.Facultad || rawZona || '—',
-            zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
-            tipoIncidente: i.tipoIncidente || i.TipoIncidente,
-            mensaje: i.descripcion || i.Descripcion || i.mensaje || i.Mensaje || i.tipoIncidente || i.TipoIncidente,
-            fechaReporte: i.fechaReporte || i.FechaReporte
-          };
-        });
-        setIncidentesDB(mapeados);
-      })
-      .catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
+    cargarIncidentes().catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
   }, []);
+
+  const asumirIncidente = async (incidente: AlertaIncidente) => {
+    if (asumiendoId === incidente.idIncidente || incidente.estado?.toLowerCase() === 'asumido') {
+      return;
+    }
+
+    setAsumiendoId(incidente.idIncidente);
+
+    try {
+      const response = await fetch(`${INCIDENTS_URL}/api/incidents/${incidente.idIncidente}/asignar`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${usuario.token}`,
+        },
+        body: JSON.stringify({
+          guardiaAsignado: usuario.nombre || 'Guardia asignado'
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.mensaje ?? `Error ${response.status} al asumir el incidente`);
+      }
+
+      const data = await response.json();
+      setIncidentesDB((prev) => prev.map((item) => (
+        item.idIncidente === incidente.idIncidente
+          ? {
+              ...item,
+              estado: data.estado ?? 'Asumido',
+              guardiaAsignado: data.guardiaAsignado ?? usuario.nombre
+            }
+          : item
+      )));
+    } catch (err) {
+      console.error(err);
+      await cargarIncidentes();
+    } finally {
+      setAsumiendoId(null);
+    }
+  };
 
   // Unir datos de BD + nuevas alertas SignalR (las nuevas van primero)
   const alertas = [
@@ -57,7 +109,16 @@ const Admin = () => {
       };
     }) as AlertaIncidente[],
     ...incidentesDB
-  ];
+  ].reduce<AlertaIncidente[]>((acumuladas, alerta) => {
+    const existente = acumuladas.findIndex((item) => item.idIncidente === alerta.idIncidente);
+    if (existente >= 0) {
+      acumuladas[existente] = { ...acumuladas[existente], ...alerta };
+      return acumuladas;
+    }
+
+    acumuladas.push(alerta);
+    return acumuladas;
+  }, []);
 
   if (!usuario?.token) { navigate('/login'); return null; }
 
@@ -209,28 +270,43 @@ const Admin = () => {
                       <th>Fecha y hora</th>
                       <th>Estado</th>
                       <th>Guardia asignado</th>
+                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alertasPagina.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="tabla-vacia">
+                        <td colSpan={9} className="tabla-vacia">
                           Sin incidentes registrados. Esperando alertas en tiempo real...
                         </td>
                       </tr>
                     ) : (
-                      alertasPagina.map((a) => (
-                        <tr key={a.idIncidente}>
-                      <td className="td-nombre">{a.nombreUsuario || `Usuario #${(a as any).idUsuario || '?'}`}</td>
-                          <td>Estudiante</td>
-                      <td>{a.facultad}</td>
-                      <td>{a.zona}</td>
-                          <td>{a.tipoIncidente}</td>
-                          <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
-                          <td><span className="badge-activo">Activo</span></td>
-                      <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
-                        </tr>
-                      ))
+                      alertasPagina.map((a) => {
+                        const estado = a.estado ?? 'Activo';
+                        const asumido = estado.toLowerCase() === 'asumido';
+
+                        return (
+                          <tr key={a.idIncidente}>
+                            <td className="td-nombre">{a.nombreUsuario || `Usuario #${(a as any).idUsuario || '?'}`}</td>
+                            <td>Estudiante</td>
+                            <td>{a.facultad}</td>
+                            <td>{a.zona}</td>
+                            <td>{a.tipoIncidente}</td>
+                            <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
+                            <td><span className={asumido ? 'badge-asumido' : 'badge-activo'}>{estado}</span></td>
+                            <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
+                            <td className="td-acciones">
+                              <button
+                                className="btn-asumir"
+                                onClick={() => asumirIncidente(a)}
+                                disabled={asumido || asumiendoId === a.idIncidente}
+                              >
+                                {asumiendoId === a.idIncidente ? 'Asumiendo...' : asumido ? 'Asumido' : 'Asumir'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

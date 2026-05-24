@@ -43,6 +43,7 @@ public class IncidentsController : ControllerBase
             TipoIncidente = request.TipoIncidente,
             Descripcion   = request.Descripcion,
             Estado        = "Activo",
+            GuardiaAsignado = null,
             FechaReporte  = DateTime.Now
         };
 
@@ -79,9 +80,38 @@ public class IncidentsController : ControllerBase
                 idZona        = nuevoIncidente.IdZona,
                 tipoIncidente = nuevoIncidente.TipoIncidente,
                 estado        = nuevoIncidente.Estado,
+                guardiaAsignado = nuevoIncidente.GuardiaAsignado,
                 fechaReporte  = nuevoIncidente.FechaReporte,
                 mensaje       = "Incidente creado exitosamente."
             });
+    }
+
+    [HttpPatch("{id}/asignar")]
+    public async Task<IActionResult> AsumirIncidente(int id, [FromBody] AsumirIncidenteRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var incidente = await _context.Incidentes.FirstOrDefaultAsync(i => i.IdIncidente == id);
+        if (incidente == null)
+        {
+            return NotFound(new { mensaje = $"Incidente {id} no encontrado." });
+        }
+
+        incidente.GuardiaAsignado = request.GuardiaAsignado.Trim();
+        incidente.Estado = "Asumido";
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            idIncidente = incidente.IdIncidente,
+            estado = incidente.Estado,
+            guardiaAsignado = incidente.GuardiaAsignado,
+            fechaReporte = incidente.FechaReporte,
+            mensaje = "Incidente asumido exitosamente."
+        });
     }
 
     [HttpGet("{id}")]
@@ -102,6 +132,7 @@ public class IncidentsController : ControllerBase
             tipoIncidente = incidente.TipoIncidente,
             descripcion   = incidente.Descripcion,
             estado        = incidente.Estado,
+            guardiaAsignado = incidente.GuardiaAsignado,
             fechaReporte  = incidente.FechaReporte
         });
     }
@@ -119,6 +150,7 @@ public class IncidentsController : ControllerBase
                 zona          = i.Zona.Nombre,
                 tipoIncidente = i.TipoIncidente,
                 estado        = i.Estado,
+                guardiaAsignado = i.GuardiaAsignado,
                 fechaReporte  = i.FechaReporte
             })
             .ToListAsync();
