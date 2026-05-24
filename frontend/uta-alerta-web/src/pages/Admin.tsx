@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
 import MapComponent from '../components/MapComponent';
+import CamerasPanel from '../components/CamerasPanel';
 import type { AlertaIncidente } from '../services/signalrService';
 import type { Zona } from '../services/zonasService';
 import './Admin.css';
@@ -14,7 +15,7 @@ const Admin = () => {
   const { alertas: alertasWS, error } = useSignalR('Admins');
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'customers'>('notificaciones');
+  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
 
   // Cargar incidentes existentes desde la BD al abrir la página
@@ -114,6 +115,16 @@ const Admin = () => {
           </button>
 
           <button
+            className={`nav-item ${seccion === 'camaras' ? 'activo' : ''}`}
+            onClick={() => setSeccion('camaras')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+            </span>
+            Cámaras
+          </button>
+
+          <button
             className={`nav-item ${seccion === 'customers' ? 'activo' : ''}`}
             onClick={() => setSeccion('customers')}
           >
@@ -147,6 +158,7 @@ const Admin = () => {
           <h1 className="admin-titulo">
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
+            {seccion === 'camaras' && 'Administración de Cámaras'}
             {seccion === 'customers' && 'Customers'}
           </h1>
 
@@ -243,6 +255,10 @@ const Admin = () => {
               incidentes={alertas}
               onZonaSeleccionada={setZonaSeleccionada}
             />
+          )}
+
+          {seccion === 'camaras' && (
+            <CamerasPanel />
           )}
 
           {seccion === 'customers' && (
