@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
+import MapComponent from '../components/MapComponent';
 import type { AlertaIncidente } from '../services/signalrService';
+import type { Zona } from '../services/zonasService';
 import './Admin.css';
 
 const ITEMS_POR_PAGINA = 10;
@@ -9,10 +11,11 @@ const ITEMS_POR_PAGINA = 10;
 const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas: alertasWS, conectado, error } = useSignalR('Admins');
+  const { alertas: alertasWS, error } = useSignalR('Admins');
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'customers'>('notificaciones');
+  const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
@@ -217,10 +220,10 @@ const Admin = () => {
           )}
 
           {seccion === 'mapa' && (
-            <div className="seccion-placeholder">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
-              <p>Mapa del campus — próximamente</p>
-            </div>
+            <MapComponent 
+              incidentes={alertas}
+              onZonaSeleccionada={setZonaSeleccionada}
+            />
           )}
 
           {seccion === 'customers' && (

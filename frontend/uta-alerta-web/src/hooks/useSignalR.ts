@@ -5,7 +5,7 @@ import * as signalR from '@microsoft/signalr'; // Importar para validar estados
 export function useSignalR(grupo: string) {
     const [alertas, setAlertas] = useState<AlertaIncidente[]>([]);
     const [conectado, setConectado] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [error, _setError] = useState<string | null>(null);
 
     const agregarAlerta = useCallback((alerta: AlertaIncidente) => {
         setAlertas(prev => [alerta, ...prev]);

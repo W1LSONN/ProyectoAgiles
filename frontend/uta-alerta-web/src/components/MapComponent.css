@@ -1,0 +1,250 @@
+/* MapComponent.css */
+.map-component {
+  display: flex;
+  height: 100%;
+  gap: 0;
+  background-color: #f5f5f5;
+}
+
+.map-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background-color: white;
+  border-right: 2px solid #e0e0e0;
+}
+
+/* Estilos de Leaflet */
+.leaflet-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.leaflet-popup-content {
+  font-size: 12px;
+  margin: 4px 0;
+}
+
+.leaflet-popup-tip {
+  background-color: white;
+  border: 1px solid #ddd;
+}
+
+.popup-zona {
+  padding: 8px;
+  min-width: 180px;
+}
+
+.popup-zona h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.popup-zona p {
+  margin: 4px 0;
+  font-size: 12px;
+  color: #666;
+}
+
+.popup-incidente {
+  padding: 8px;
+  min-width: 220px;
+}
+
+.popup-incidente h5 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #d32f2f;
+}
+
+.popup-incidente p {
+  margin: 4px 0;
+  font-size: 11px;
+  color: #555;
+}
+
+.popup-incidente strong {
+  color: #333;
+}
+
+/* Panel lateral de control */
+.map-legend {
+  width: 320px;
+  background-color: white;
+  padding: 20px;
+  overflow-y: auto;
+  border-left: 1px solid #e0e0e0;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.map-legend h3 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-legend h3::before {
+  content: '🗺️';
+  font-size: 18px;
+}
+
+.zonas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.zona-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: #f9f9f9;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.zona-item:hover {
+  background-color: #f0f0f0;
+  border-color: #d0d0d0;
+}
+
+.zona-item.active {
+  background-color: #f0f8ff;
+  border-color: #2196f3;
+  font-weight: 600;
+}
+
+.zona-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.zona-nombre {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.zona-contador {
+  font-size: 11px;
+  color: #999;
+  font-weight: 400;
+  min-width: 40px;
+  text-align: right;
+}
+
+.zona-incidentes {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 2px solid #e0e0e0;
+}
+
+.zona-incidentes h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zona-incidentes h4::before {
+  content: '⚠️';
+  font-size: 16px;
+}
+
+.incidentes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.incidente-item {
+  padding: 10px;
+  background-color: #fff3e0;
+  border-left: 4px solid #ff6b6b;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.incidente-item strong {
+  color: #d32f2f;
+  font-size: 13px;
+}
+
+.incidente-item small {
+  color: #666;
+  font-size: 11px;
+}
+
+/* Estilos del marcador de incidente */
+.marker-incidente {
+  filter: hue-rotate(0deg) saturate(1.5) brightness(1.1);
+}
+
+/* Responsividad para pantallas pequeñas */
+@media (max-width: 1024px) {
+  .map-legend {
+    width: 280px;
+    padding: 16px;
+  }
+
+  .popup-zona,
+  .popup-incidente {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-component {
+    flex-direction: column;
+  }
+
+  .map-legend {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #e0e0e0;
+    max-height: 200px;
+  }
+}
+
+/* Animación de entrada para nuevos incidentes */
+@keyframes pulse-marker {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.incidente-item {
+  animation: pulse-marker 0.5s ease-in-out;
+}
