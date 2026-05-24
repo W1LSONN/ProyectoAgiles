@@ -125,4 +125,45 @@ public class IncidentsController : ControllerBase
 
         return Ok(incidentes);
     }
+
+    [HttpPut("{id}/cerrar")]
+    public async Task<IActionResult> CerrarIncidente(int id, [FromBody] CerrarIncidenteRequest request)
+    {
+        // 1. Buscar el incidente en la BD
+        var incidente = await _context.Incidentes.FindAsync(id);
+
+        if (incidente == null)
+        {
+            return NotFound(new { mensaje = "Incidente no encontrado" });
+        }
+
+        if (incidente.Estado == "Cerrado")
+        {
+            return BadRequest(new { mensaje = "El incidente ya se encuentra cerrado" });
+        }
+
+        // 2. Actualizar los campos
+        incidente.Estado = "Cerrado";
+        incidente.ObservacionesCierre = request.Observaciones;
+        incidente.FechaCierre = DateTime.Now;
+
+        // 3. Guardar en la Base de Datos
+        try
+        {
+            await _context.SaveChangesAsync();
+
+            // NOTA: Aquí posteriormente Christopher agregará la lógica de SignalR
+            // para notificar a los demás guardias que el incidente desaparece de su lista.
+
+            return Ok(new
+            {
+                mensaje = "Incidente cerrado con éxito",
+                incidente
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { mensaje = "Error al cerrar el incidente", detalle = ex.Message });
+        }
+    }
 }
