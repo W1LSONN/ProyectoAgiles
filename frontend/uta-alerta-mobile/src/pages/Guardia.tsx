@@ -1,22 +1,129 @@
-import React from 'react';
-import { IonContent, IonIcon, IonPage, IonToggle } from '@ionic/react';
+import React, { useEffect, useState } from 'react';
+import {
+  IonContent,
+  IonIcon,
+  IonPage,
+  IonToggle,
+  IonModal,
+  IonButton,
+  IonHeader,
+  IonToolbar,
+  IonTitle,
+  IonButtons,
+  IonText,
+  IonSpinner,
+} from '@ionic/react';
 import { menuOutline, personCircleOutline } from 'ionicons/icons';
 import './Guardia.css';
+import * as signalR from '@microsoft/signalr';
 
 interface NotificacionGuardia {
-  id: number;
-  titulo: string;
-  nombre: string;
-  zona: string;
-  hora: string;
+  idIncidente: number;
+  tipoIncidente: string;
+  nombreReportado?: string;
+  zona?: string;
+  fechaReporte?: string;
+  mensaje?: string;
+  mapaUrl?: string;
 }
 
-const notificaciones: NotificacionGuardia[] = [
-  { id: 1, titulo: 'Robo', nombre: 'Wilson Pillapa', zona: 'Zona A', hora: '07:53 PM' },
-  { id: 2, titulo: 'Secuestro', nombre: 'Andrés Quinga', zona: 'Zona B', hora: '07:54 PM' },
-];
+const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+const SIGNALR_URL = import.meta.env.VITE_SIGNALR_URL ?? 'http://localhost:5009/hubs/incident';
 
 const Guardia: React.FC = () => {
+  const [notificaciones, setNotificaciones] = useState<NotificacionGuardia[]>([]);
+  const [conectado, setConectado] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [seleccionada, setSeleccionada] = useState<NotificacionGuardia | null>(null);
+  const [asignando, setAsignando] = useState(false);
+
+  useEffect(() => {
+    const usuarioRaw = localStorage.getItem('usuario');
+    const token = localStorage.getItem('token');
+    if (!token || !usuarioRaw) {
+      setError('Usuario no autenticado. Vuelve a iniciar sesión.');
+      return;
+    }
+
+    const usuario = JSON.parse(usuarioRaw);
+
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(SIGNALR_URL, {
+        accessTokenFactory: () => token,
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    const manejarAlerta = (data: NotificacionGuardia) => {
+      setNotificaciones((s) => [data, ...s].slice(0, 50));
+    };
+
+    connection.on('RecibirAlertaIncidente', manejarAlerta);
+
+    (async () => {
+      try {
+        await connection.start();
+        setConectado(true);
+        // Unirse a grupos: Guardias y grupo específico si existe
+        await connection.invoke('UnirseAlGrupo', 'Guardias').catch(() => {});
+        if (usuario.grupo) {
+          await connection.invoke('UnirseAlGrupo', usuario.grupo).catch(() => {});
+        }
+      } catch (e) {
+        console.error('Error conectando SignalR móvil', e);
+        setError('No se pudo conectar con las notificaciones en tiempo real.');
+        setConectado(false);
+      }
+    })();
+
+    return () => {
+      connection.off('RecibirAlertaIncidente', manejarAlerta);
+      connection.invoke('SalirDelGrupo', 'Guardias').catch(() => {});
+      connection.stop().catch(() => {});
+    };
+  }, []);
+
+  const abrirDetalle = (n: NotificacionGuardia) => setSeleccionada(n);
+
+  const cerrarDetalle = () => setSeleccionada(null);
+
+  const asumirIncidente = async () => {
+    if (!seleccionada) return;
+    const token = localStorage.getItem('token');
+    const usuarioRaw = localStorage.getItem('usuario');
+    if (!token || !usuarioRaw) {
+      setError('Usuario no autenticado');
+      return;
+    }
+    const usuario = JSON.parse(usuarioRaw);
+
+    setAsignando(true);
+    try {
+      const res = await fetch(`${INCIDENT_URL}/api/incidents/${seleccionada.idIncidente}/asignar`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ guardiaAsignado: usuario.nombre }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.mensaje || `Error ${res.status}`);
+      }
+
+      // marcar como asignado en la lista
+      setNotificaciones((s) => s.filter((x) => x.idIncidente !== seleccionada.idIncidente));
+      cerrarDetalle();
+    } catch (e: any) {
+      console.error('Error asignando incidente', e);
+      setError(e?.message || 'Error al asignar incidente');
+    } finally {
+      setAsignando(false);
+    }
+  };
+
   return (
     <IonPage>
       <IonContent className="guardia-content" fullscreen>
@@ -30,32 +137,81 @@ const Guardia: React.FC = () => {
 
           <section className="guardia-disponibilidad" aria-label="Disponibilidad del guardia">
             <span className="guardia-disponibilidad-texto">Disponibilidad</span>
-            <IonToggle checked={false} className="guardia-toggle" />
+            <IonToggle checked={true} className="guardia-toggle" />
           </section>
 
           <main className="guardia-main">
             <h1 className="guardia-titulo">Notificaciones</h1>
 
-            <div className="guardia-lista">
-              {notificaciones.map((notificacion) => (
-                <article key={notificacion.id} className="guardia-card">
-                  <div className="guardia-avatar">
-                    <IonIcon icon={personCircleOutline} />
-                  </div>
+            <div className="guardia-status-line">
+              {conectado ? (
+                <IonText color="success">Conectado a notificaciones</IonText>
+              ) : error ? (
+                <IonText color="danger">{error}</IonText>
+              ) : (
+                <IonText color="medium">Conectando...</IonText>
+              )}
+            </div>
 
-                  <div className="guardia-card-contenido">
-                    <div className="guardia-card-top">
-                      <strong className="guardia-card-titulo">{notificacion.titulo}</strong>
-                      <span className="guardia-card-hora">{notificacion.hora}</span>
+            <div className="guardia-lista">
+              {notificaciones.length === 0 ? (
+                <div className="guardia-empty">
+                  <IonText>No hay notificaciones nuevas.</IonText>
+                </div>
+              ) : (
+                notificaciones.map((n) => (
+                  <article key={n.idIncidente} className="guardia-card" onClick={() => abrirDetalle(n)}>
+                    <div className="guardia-avatar">
+                      <IonIcon icon={personCircleOutline} />
                     </div>
-                    <p className="guardia-card-nombre">{notificacion.nombre}</p>
-                    <p className="guardia-card-zona">{notificacion.zona}</p>
-                  </div>
-                </article>
-              ))}
+
+                    <div className="guardia-card-contenido">
+                      <div className="guardia-card-top">
+                        <strong className="guardia-card-titulo">{n.tipoIncidente}</strong>
+                        <span className="guardia-card-hora">{n.fechaReporte ?? ''}</span>
+                      </div>
+                      <p className="guardia-card-nombre">{n.nombreReportado}</p>
+                      <p className="guardia-card-zona">{n.zona}</p>
+                    </div>
+                  </article>
+                ))
+              )}
             </div>
           </main>
         </div>
+
+        <IonModal isOpen={!!seleccionada} onDidDismiss={cerrarDetalle}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Notificación</IonTitle>
+              <IonButtons slot="end">
+                <IonButton onClick={cerrarDetalle}>Cerrar</IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <div className="modal-body">
+            {seleccionada ? (
+              <div>
+                <h2>{seleccionada.tipoIncidente}</h2>
+                <p><strong>Nombre:</strong> {seleccionada.nombreReportado}</p>
+                <p><strong>Motivo:</strong> {seleccionada.tipoIncidente}</p>
+                <p><strong>Zona:</strong> {seleccionada.zona}</p>
+                {seleccionada.mapaUrl ? (
+                  <img src={seleccionada.mapaUrl} alt="Mapa" className="guardia-mapa" />
+                ) : (
+                  <div className="guardia-mapa placeholder">Mapa no disponible</div>
+                )}
+
+                <div className="modal-actions">
+                  <IonButton color="success" onClick={asumirIncidente} disabled={asignando}>
+                    {asignando ? <IonSpinner /> : 'Asumir'}
+                  </IonButton>
+                  <IonButton color="danger" onClick={cerrarDetalle}>Cerrar</IonButton>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </IonModal>
       </IonContent>
     </IonPage>
   );
