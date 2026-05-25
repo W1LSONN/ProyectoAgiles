@@ -28,7 +28,7 @@ interface NotificacionGuardia {
 }
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
-const SIGNALR_URL = import.meta.env.VITE_SIGNALR_URL ?? 'http://localhost:5009/hubs/incident';
+const SIGNALR_URL = import.meta.env.VITE_NOTIFICATION_URL ? `${import.meta.env.VITE_NOTIFICATION_URL}/hubs/incident` : 'http://localhost:5009/hubs/incident';
 
 const Guardia: React.FC = () => {
   const [notificaciones, setNotificaciones] = useState<NotificacionGuardia[]>([]);
@@ -116,7 +116,8 @@ const Guardia: React.FC = () => {
       // marcar como asignado en la lista
       setNotificaciones((s) => s.filter((x) => x.idIncidente !== seleccionada.idIncidente));
       cerrarDetalle();
-    } catch (e: any) {
+    } catch (error) {
+      const e = error as Error;
       console.error('Error asignando incidente', e);
       setError(e?.message || 'Error al asignar incidente');
     } finally {
