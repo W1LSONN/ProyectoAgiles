@@ -1,12 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   IonPage, IonContent, IonSelect, IonSelectOption,
-  IonText, IonIcon
+  IonText, IonIcon, IonInput, IonButton
 } from '@ionic/react';
 import { wifiOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import './Home.css';
 import { crearIncidente } from '../services/incidentService';
+import {
+  obtenerGrupos,
+  crearGrupo as apiCrearGrupo,
+  unirseGrupo as apiUnirseGrupo,
+  salirGrupo as apiSalirGrupo,
+  obtenerGrupoDetalle,
+  Grupo,
+} from '../services/groupService';
 
 // Tipo para los datos del usuario guardados en localStorage
 interface UsuarioData {
@@ -25,6 +33,13 @@ const Home: React.FC = () => {
 
   // ── Datos del usuario ────────────────────────────────────────────
   const [usuario, setUsuario] = useState<UsuarioData | null>(null);
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [gruposCargando, setGruposCargando] = useState<boolean>(false);
+  const [gruposError, setGruposError] = useState<string | null>(null);
+  const [nombreGrupo, setNombreGrupo] = useState<string>('');
+  const [descripcionGrupo, setDescripcionGrupo] = useState<string>('');
+  const [creandoGrupo, setCreandoGrupo] = useState<boolean>(false);
+  const [accionGrupos, setAccionGrupos] = useState<string | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem('usuario');
@@ -34,6 +49,26 @@ const Home: React.FC = () => {
     }
     setUsuario(JSON.parse(raw));
   }, [history]);
+
+  useEffect(() => {
+    const cargarGrupos = async () => {
+      if (!usuario) return;
+      setGruposCargando(true);
+      setGruposError(null);
+
+      try {
+        const gruposObtenidos = await obtenerGrupos(usuario.token);
+        setGrupos(gruposObtenidos);
+      } catch (error) {
+        const e = error as Error;
+        setGruposError(e.message || 'No se pudieron cargar los grupos');
+      } finally {
+        setGruposCargando(false);
+      }
+    };
+
+    cargarGrupos();
+  }, [usuario]);
 
   // ── Selector de motivo ───────────────────────────────────────────
   const [motivo, setMotivo] = useState<string>('Alerta de seguridad');
@@ -104,6 +139,94 @@ const Home: React.FC = () => {
     setProgreso(0);
     progresoRef.current = 0;
     setMotivo('Alerta de seguridad');
+  };
+
+  const recargarGrupos = async () => {
+    if (!usuario) return;
+    setGruposError(null);
+    setGruposCargando(true);
+
+    try {
+      const gruposObtenidos = await obtenerGrupos(usuario.token);
+      setGrupos(gruposObtenidos);
+    } catch (error) {
+      const e = error as Error;
+      setGruposError(e.message || 'No se pudieron cargar los grupos');
+    } finally {
+      setGruposCargando(false);
+    }
+  };
+
+  const handleCrearGrupo = async () => {
+    if (!usuario) return;
+    if (!nombreGrupo.trim() || !descripcionGrupo.trim()) {
+      setGruposError('Completa nombre y descripción del grupo');
+      return;
+    }
+
+    setCreandoGrupo(true);
+    setAccionGrupos('Creando grupo...');
+    setGruposError(null);
+
+    try {
+      const grupoCreado = await apiCrearGrupo({
+        nombre: nombreGrupo.trim(),
+        descripcion: descripcionGrupo.trim(),
+        idCreador: usuario.idUsuario,
+      }, usuario.token);
+      
+      // Obtener los detalles completos del grupo (incluyendo miembros)
+      const grupoCompleto = await obtenerGrupoDetalle(grupoCreado.idGrupo, usuario.token);
+      
+      setGrupos((prev) => [grupoCompleto, ...prev]);
+      setNombreGrupo('');
+      setDescripcionGrupo('');
+    } catch (error) {
+      const e = error as Error;
+      setGruposError(e.message || 'No se pudo crear el grupo');
+    } finally {
+      setCreandoGrupo(false);
+      setAccionGrupos(null);
+    }
+  };
+
+  const handleUnirse = async (grupoId: number) => {
+    if (!usuario) return;
+    setAccionGrupos('Uniendo al grupo...');
+    setGruposError(null);
+
+    try {
+      await apiUnirseGrupo(grupoId, usuario.idUsuario, usuario.token);
+      // Recargar el grupo para obtener los datos actualizados
+      await recargarGrupos();
+    } catch (error) {
+      const e = error as Error;
+      setGruposError(e.message || 'No se pudo unir al grupo');
+    } finally {
+      setAccionGrupos(null);
+    }
+  };
+
+  const handleSalir = async (grupoId: number) => {
+    if (!usuario) return;
+    setAccionGrupos('Saliendo del grupo...');
+    setGruposError(null);
+
+    try {
+      await apiSalirGrupo(grupoId, usuario.idUsuario, usuario.token);
+      // Recargar el grupo para obtener los datos actualizados
+      await recargarGrupos();
+    } catch (error) {
+      const e = error as Error;
+      setGruposError(e.message || 'No se pudo salir del grupo');
+    } finally {
+      setAccionGrupos(null);
+    }
+  };
+
+  const estaEnGrupo = (grupo: Grupo) => {
+    if (!usuario || !grupo.miembros) return false;
+    return grupo.miembros.some((miembro) => miembro.idUsuario === usuario.idUsuario);
   };
 
   // ── SVG: cálculo del círculo de progreso ─────────────────────────
@@ -239,6 +362,97 @@ const Home: React.FC = () => {
               </button>
             </div>
           )}
+
+          <div className="grupo-section">
+            <div className="grupo-header">
+              <h2>Grupos de confianza</h2>
+              <p>Administra los grupos a los que te puedes unir y ver sus miembros.</p>
+            </div>
+
+            <div className="grupo-formulario">
+              <IonInput
+                value={nombreGrupo}
+                placeholder="Nombre del grupo"
+                onIonInput={(e) => setNombreGrupo(e.detail.value ?? '')}
+                className="grupo-input"
+              />
+              <IonInput
+                value={descripcionGrupo}
+                placeholder="Descripción breve"
+                onIonInput={(e) => setDescripcionGrupo(e.detail.value ?? '')}
+                className="grupo-input"
+              />
+              <IonButton
+                expand="block"
+                onClick={handleCrearGrupo}
+                disabled={creandoGrupo}
+                className="grupo-btn"
+              >
+                {creandoGrupo ? 'Creando grupo...' : 'Crear grupo'}
+              </IonButton>
+            </div>
+
+            {accionGrupos && (
+              <div className="grupo-notice">{accionGrupos}</div>
+            )}
+
+            {gruposError && (
+              <div className="grupo-error">⚠️ {gruposError}</div>
+            )}
+
+            <div className="grupo-lista">
+              <div className="grupo-lista-header">
+                <span>Grupos disponibles</span>
+                <button className="grupo-recargar" onClick={recargarGrupos}>
+                  {gruposCargando ? 'Cargando...' : 'Actualizar'}
+                </button>
+              </div>
+
+              {gruposCargando ? (
+                <div className="grupo-loading">Cargando grupos...</div>
+              ) : grupos.length === 0 ? (
+                <div className="grupo-vacio">No hay grupos disponibles por ahora.</div>
+              ) : (
+                grupos.map((grupo) => {
+                  const enMiGrupo = estaEnGrupo(grupo);
+
+                  return (
+                    <div key={grupo.idGrupo} className="grupo-card">
+                      <div className="grupo-card-header">
+                        <div>
+                          <h3>{grupo.nombre}</h3>
+                          <p>{grupo.descripcion}</p>
+                        </div>
+                        <IonButton
+                          fill={enMiGrupo ? 'outline' : 'solid'}
+                          color={enMiGrupo ? 'medium' : 'primary'}
+                          size="small"
+                          className="grupo-action"
+                          onClick={() => enMiGrupo ? handleSalir(grupo.idGrupo) : handleUnirse(grupo.idGrupo)}
+                        >
+                          {enMiGrupo ? 'Salir' : 'Unirse'}
+                        </IonButton>
+                      </div>
+                      <div className="grupo-meta">
+                        <span>{grupo.miembros?.length ?? 0} miembro{(grupo.miembros?.length ?? 0) === 1 ? '' : 's'}</span>
+                      </div>
+                      <div className="grupo-members">
+                        {!grupo.miembros || grupo.miembros.length === 0 ? (
+                          <span className="grupo-member-empty">Sin miembros aún</span>
+                        ) : (
+                          grupo.miembros.map((miembro) => (
+                            <span key={miembro.idUsuarioGrupo} className="grupo-member-pill">
+                              Usuario {miembro.idUsuario}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
 
         </div>
       </IonContent>

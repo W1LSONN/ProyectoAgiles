@@ -293,7 +293,7 @@ body,
 
 .notif-tabla {
     width: 100%;
-    min-width: 700px;
+    min-width: 880px;
     border-collapse: collapse;
     font-size: 13.5px;
 }
@@ -367,6 +367,44 @@ body,
     border: 1px solid #bbf7d0;
 }
 
+.badge-asumido {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid #bfdbfe;
+}
+
+.td-acciones {
+    text-align: right;
+}
+
+.btn-asumir {
+    border: 1px solid #1c1c1c;
+    background: #1c1c1c;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.15s, background 0.15s;
+}
+
+.btn-asumir:hover:not(:disabled) {
+    background: #333333;
+    transform: translateY(-1px);
+}
+
+.btn-asumir:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+}
+
 /* ══════════════════════════════════════
    PAGINACIÓN
 ══════════════════════════════════════ */
@@ -428,6 +466,16 @@ body,
     color: #aaa;
     font-size: 14px;
     padding: 48px 20px;
+}
+
+/* MapComponent estilos de integración */
+.content-card .map-component {
+    flex: 1;
+    height: 100%;
+    width: 100%;
+    border-radius: 0;
+    border: none;
+    display: flex;
 }
 
 /* ══════════════════════════════════════
