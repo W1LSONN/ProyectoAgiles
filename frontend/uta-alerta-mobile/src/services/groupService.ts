@@ -1,5 +1,5 @@
 // URL del GrupoService desde las variables de entorno
-const GROUP_URL = import.meta.env.VITE_GROUP_URL ?? 'http://localhost:5008';
+const GROUP_URL = import.meta.env.VITE_GROUP_URL ?? import.meta.env.VITE_NOTIFICATION_URL ?? 'http://192.168.100.83:5009';
 
 export interface GrupoMiembro {
     idUsuarioGrupo: number;
