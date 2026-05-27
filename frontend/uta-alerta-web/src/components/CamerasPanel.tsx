@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
-import { getCameras, createCamera, deleteCamera, type Camera, type CameraFormData } from '../services/camerasService';
+import { type Camera, type CameraFormData } from '../services/camerasService';
 import { ZONAS } from '../services/zonasService';
 import './CamerasPanel.css';
+
+// --- DATOS MOCK TEMPORALES (Simulación de Base de Datos) ---
+let mockCameras: Camera[] = [
+  { idCamera: 1, nombre: 'Cámara Principal Norte', ubicacion: 'Entrada Principal FICA', zona: 'zona-norte', estado: 'activa', fechaCreacion: new Date(Date.now() - 86400000).toISOString() },
+  { idCamera: 2, nombre: 'Cámara Parqueadero Sur', ubicacion: 'Parqueadero Estudiantes', zona: 'zona-sur', estado: 'activa', fechaCreacion: new Date(Date.now() - 172800000).toISOString() },
+  { idCamera: 3, nombre: 'Cámara Laboratorios', ubicacion: 'Pasillo Lab. Sistemas', zona: 'zona-este', estado: 'mantenimiento', fechaCreacion: new Date(Date.now() - 259200000).toISOString() },
+];
+// -----------------------------------------------------------
 
 const CamerasPanel = () => {
   const [camaras, setCamaras] = useState<Camera[]>([]);
@@ -16,18 +24,17 @@ const CamerasPanel = () => {
     zona: ZONAS[0]?.id || 'zona-norte',
   });
 
-  // Cargar cámaras al montar el componente
-  useEffect(() => {
-    cargarCamaras();
-  }, []);
-
   const cargarCamaras = async () => {
     setCargando(true);
     setError(null);
     try {
-      const datos = await getCameras();
-      setCamaras(datos);
-    } catch (err) {
+      // const datos = await getCameras();
+      // setCamaras(datos);
+      
+      // Simulación de latencia de red (500ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setCamaras([...mockCameras]);
+    } catch {
       setError('No se pudieron cargar las cámaras. Verifica que el servidor esté activo.');
       setCamaras([]);
     } finally {
@@ -35,11 +42,16 @@ const CamerasPanel = () => {
     }
   };
 
+  // Cargar cámaras al montar el componente
+  useEffect(() => {
+    cargarCamaras();
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
+      [name as keyof CameraFormData]: value,
     }));
   };
 
@@ -60,7 +72,20 @@ const CamerasPanel = () => {
 
     setCargando(true);
     try {
-      await createCamera(formData);
+      // await createCamera(formData);
+
+      // Simulación de guardado en red (500ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const nuevaCamara: Camera = {
+        idCamera: Math.floor(Math.random() * 10000) + 10,
+        nombre: formData.nombre,
+        ubicacion: formData.ubicacion,
+        zona: formData.zona,
+        estado: 'activa',
+        fechaCreacion: new Date().toISOString()
+      };
+      mockCameras.push(nuevaCamara);
+
       setExito('Cámara registrada exitosamente');
       setFormData({
         nombre: '',
@@ -71,7 +96,7 @@ const CamerasPanel = () => {
 
       // Ocultar mensaje de éxito después de 3 segundos
       setTimeout(() => setExito(null), 3000);
-    } catch (err) {
+    } catch {
       setError('Error al registrar la cámara. Intenta nuevamente.');
     } finally {
       setCargando(false);
@@ -84,7 +109,7 @@ const CamerasPanel = () => {
       return;
     }
 
-    if (!confirm('¿Estás seguro de que quieres eliminar esta cámara?')) {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta cámara?')) {
       return;
     }
 
@@ -93,13 +118,18 @@ const CamerasPanel = () => {
     setCargando(true);
 
     try {
-      await deleteCamera(id);
+      // await deleteCamera(id);
+
+      // Simulación de borrado en red (500ms)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      mockCameras = mockCameras.filter(c => c.idCamera !== id);
+
       setExito('Cámara eliminada exitosamente');
       await cargarCamaras();
 
       // Ocultar mensaje de éxito después de 3 segundos
       setTimeout(() => setExito(null), 3000);
-    } catch (err) {
+    } catch {
       setError('Error al eliminar la cámara. Intenta nuevamente.');
     } finally {
       setCargando(false);

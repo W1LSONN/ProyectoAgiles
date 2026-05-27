@@ -24,6 +24,24 @@ const Login: React.FC = () => {
         setCargando(true);
         setError('');
 
+        // --- INICIO DE USUARIO DE PRUEBA QUEMADO EN CÓDIGO ---
+        if (correo === 'estudiante@uta.edu.ec' && contrasena === '123456') {
+            localStorage.setItem('token', 'token-simulado-estudiante');
+            localStorage.setItem('usuario', JSON.stringify({
+                idUsuario: 999,
+                nombre: 'Estudiante de Prueba',
+                correo: 'estudiante@uta.edu.ec',
+                rol: 'Estudiante',
+                facultad: 'FICA',
+                token: 'token-simulado-estudiante'
+            }));
+            
+            history.push('/home');
+            setCargando(false);
+            return;
+        }
+        // --- FIN DE USUARIO DE PRUEBA ---
+
         try {
             const response = await fetch(`${import.meta.env.VITE_AUTH_URL}/api/auth/login`, {
                 method: 'POST',
