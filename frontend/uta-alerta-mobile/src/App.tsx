@@ -10,7 +10,6 @@ import '@ionic/react/css/typography.css';
 
 import Login from './pages/Login';
 import Home from './pages/Home';
-import Guardia from './pages/Guardia';
 
 setupIonicReact();
 
@@ -20,7 +19,6 @@ const App: React.FC = () => (
       <IonRouterOutlet>
         <Route exact path="/login" component={Login} />
         <Route exact path="/home" component={Home} />
-        <Route exact path="/guardia" component={Guardia} />
         <Route exact path="/">
           <Redirect to="/login" />
         </Route>

@@ -16,5 +16,3 @@ node_modules/
 # Capacitor Android (generado automáticamente)
 frontend/uta-alerta-mobile/android/
 frontend/uta-alerta-mobile/dist/
-API_CAMARAS_ESPECIFICACION.md
-ZONAS_REFERENCIA_BACKEND.md

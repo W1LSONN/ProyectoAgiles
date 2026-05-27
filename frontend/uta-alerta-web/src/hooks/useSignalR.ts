@@ -16,7 +16,6 @@ export function useSignalR(grupo: string) {
 
         const iniciar = async () => {
             try {
-                setError(null);
                 await signalRService.start();
                 if (cancelado) return;
 
@@ -44,10 +43,7 @@ export function useSignalR(grupo: string) {
 
             } catch (e) {
                 console.warn('SignalR: Error en la conexión.', e);
-                if (!cancelado) {
-                    setConectado(false);
-                    setError('No se pudo conectar con el canal en tiempo real.');
-                }
+                if (!cancelado) setConectado(false);
             }
         };
 

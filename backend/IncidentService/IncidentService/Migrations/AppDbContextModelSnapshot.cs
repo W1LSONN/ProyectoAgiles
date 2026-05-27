@@ -22,86 +22,6 @@ namespace IncidentService.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("IncidentService.Models.Camara", b =>
-                {
-                    b.Property<int>("IdCamara")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdCamara"));
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("IdZona")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Latitud")
-                        .HasColumnType("decimal(10,7)");
-
-                    b.Property<decimal>("Longitud")
-                        .HasColumnType("decimal(10,7)");
-
-                    b.Property<string>("Nombre")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("UrlStream")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("IdCamara");
-
-                    b.HasIndex("IdZona");
-
-                    b.ToTable("Camaras");
-
-                    b.HasData(
-                        new
-                        {
-                            IdCamara = 1,
-                            Estado = "Activa",
-                            IdZona = 1,
-                            Latitud = -1.2490m,
-                            Longitud = -78.6166m,
-                            Nombre = "Cámara Entrada Principal",
-                            UrlStream = "https://www.w3schools.com/html/mov_bbb.mp4"
-                        },
-                        new
-                        {
-                            IdCamara = 2,
-                            Estado = "Activa",
-                            IdZona = 2,
-                            Latitud = -1.2497m,
-                            Longitud = -78.6170m,
-                            Nombre = "Cámara Admin Externa",
-                            UrlStream = "https://www.w3schools.com/html/movie.mp4"
-                        },
-                        new
-                        {
-                            IdCamara = 3,
-                            Estado = "Mantenimiento",
-                            IdZona = 3,
-                            Latitud = -1.2486m,
-                            Longitud = -78.6181m,
-                            Nombre = "Cámara Salud Interna",
-                            UrlStream = "https://www.w3schools.com/html/mov_bbb.mp4"
-                        },
-                        new
-                        {
-                            IdCamara = 4,
-                            Estado = "Activa",
-                            IdZona = 4,
-                            Latitud = -1.2503m,
-                            Longitud = -78.6160m,
-                            Nombre = "Cámara Lab FCI",
-                            UrlStream = "https://www.w3schools.com/html/movie.mp4"
-                        });
-                });
-
             modelBuilder.Entity("IncidentService.Models.Incidente", b =>
                 {
                     b.Property<int>("IdIncidente")
@@ -118,10 +38,6 @@ namespace IncidentService.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
-
-                    b.Property<string>("GuardiaAsignado")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime?>("FechaCierre")
                         .HasColumnType("datetime2");
@@ -221,15 +137,6 @@ namespace IncidentService.Migrations
                             Longitud = -78.6162m,
                             Nombre = "Zona 4 — Ingeniería / FCI"
                         });
-                });
-
-            modelBuilder.Entity("IncidentService.Models.Camara", b =>
-                {
-                    b.HasOne("IncidentService.Models.Zona", "Zona")
-                        .WithMany()
-                        .HasForeignKey("IdZona");
-
-                    b.Navigation("Zona");
                 });
 
             modelBuilder.Entity("IncidentService.Models.Incidente", b =>

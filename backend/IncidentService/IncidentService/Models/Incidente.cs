@@ -26,9 +26,6 @@ public class Incidente
     [MaxLength(30)]
     public string Estado { get; set; } = "Activo";
 
-    [MaxLength(100)]
-    public string? GuardiaAsignado { get; set; }
-
     [MaxLength(500)]
     public string? ObservacionesCierre { get; set; }
 

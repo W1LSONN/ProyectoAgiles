@@ -43,7 +43,6 @@ public class IncidentsController : ControllerBase
             TipoIncidente = request.TipoIncidente,
             Descripcion   = request.Descripcion,
             Estado        = "Activo",
-            GuardiaAsignado = null,
             FechaReporte  = DateTime.Now
         };
 
@@ -80,38 +79,9 @@ public class IncidentsController : ControllerBase
                 idZona        = nuevoIncidente.IdZona,
                 tipoIncidente = nuevoIncidente.TipoIncidente,
                 estado        = nuevoIncidente.Estado,
-                guardiaAsignado = nuevoIncidente.GuardiaAsignado,
                 fechaReporte  = nuevoIncidente.FechaReporte,
                 mensaje       = "Incidente creado exitosamente."
             });
-    }
-
-    [HttpPatch("{id}/asignar")]
-    public async Task<IActionResult> AsumirIncidente(int id, [FromBody] AsumirIncidenteRequest request)
-    {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
-        var incidente = await _context.Incidentes.FirstOrDefaultAsync(i => i.IdIncidente == id);
-        if (incidente == null)
-        {
-            return NotFound(new { mensaje = $"Incidente {id} no encontrado." });
-        }
-
-        incidente.GuardiaAsignado = request.GuardiaAsignado.Trim();
-        incidente.Estado = "Asumido";
-        await _context.SaveChangesAsync();
-
-        return Ok(new
-        {
-            idIncidente = incidente.IdIncidente,
-            estado = incidente.Estado,
-            guardiaAsignado = incidente.GuardiaAsignado,
-            fechaReporte = incidente.FechaReporte,
-            mensaje = "Incidente asumido exitosamente."
-        });
     }
 
     [HttpGet("{id}")]
@@ -132,7 +102,6 @@ public class IncidentsController : ControllerBase
             tipoIncidente = incidente.TipoIncidente,
             descripcion   = incidente.Descripcion,
             estado        = incidente.Estado,
-            guardiaAsignado = incidente.GuardiaAsignado,
             fechaReporte  = incidente.FechaReporte
         });
     }
@@ -150,52 +119,10 @@ public class IncidentsController : ControllerBase
                 zona          = i.Zona.Nombre,
                 tipoIncidente = i.TipoIncidente,
                 estado        = i.Estado,
-                guardiaAsignado = i.GuardiaAsignado,
                 fechaReporte  = i.FechaReporte
             })
             .ToListAsync();
 
         return Ok(incidentes);
-    }
-
-    [HttpPut("{id}/cerrar")]
-    public async Task<IActionResult> CerrarIncidente(int id, [FromBody] CerrarIncidenteRequest request)
-    {
-        // 1. Buscar el incidente en la BD
-        var incidente = await _context.Incidentes.FindAsync(id);
-
-        if (incidente == null)
-        {
-            return NotFound(new { mensaje = "Incidente no encontrado" });
-        }
-
-        if (incidente.Estado == "Cerrado")
-        {
-            return BadRequest(new { mensaje = "El incidente ya se encuentra cerrado" });
-        }
-
-        // 2. Actualizar los campos
-        incidente.Estado = "Cerrado";
-        incidente.ObservacionesCierre = request.Observaciones;
-        incidente.FechaCierre = DateTime.Now;
-
-        // 3. Guardar en la Base de Datos
-        try
-        {
-            await _context.SaveChangesAsync();
-
-            // NOTA: Aquí posteriormente Christopher agregará la lógica de SignalR
-            // para notificar a los demás guardias que el incidente desaparece de su lista.
-
-            return Ok(new
-            {
-                mensaje = "Incidente cerrado con éxito",
-                incidente
-            });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { mensaje = "Error al cerrar el incidente", detalle = ex.Message });
-        }
     }
 }

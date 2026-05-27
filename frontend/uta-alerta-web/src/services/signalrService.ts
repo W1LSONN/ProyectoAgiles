@@ -10,7 +10,6 @@ export interface AlertaIncidente {
     tipoIncidente: string;
     mensaje: string;
     fechaReporte: string;
-    estado?: string;
     guardiaAsignado?: string;
 }
 

@@ -1,124 +1,40 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
-import MapComponent from '../components/MapComponent';
-import CamerasPanel from '../components/CamerasPanel';
 import type { AlertaIncidente } from '../services/signalrService';
-import type { Zona } from '../services/zonasService';
 import './Admin.css';
 
 const ITEMS_POR_PAGINA = 10;
-const INCIDENTS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 
 const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas: alertasWS, error } = useSignalR('Admins');
+  const { alertas: alertasWS, conectado, error } = useSignalR('Admins');
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
-  const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
-  const [asumiendoId, setAsumiendoId] = useState<number | null>(null);
-
-  const cargarIncidentes = async () => {
-    const response = await fetch(`${INCIDENTS_URL}/api/incidents`);
-    if (!response.ok) {
-      throw new Error(`Error ${response.status} al cargar incidentes`);
-    }
-
-    const data: any[] = await response.json();
-    const mapeados: AlertaIncidente[] = data.map((i) => {
-      const rawIdZona = i.idZona || i.IdZona;
-      const rawZona = i.zona || i.Zona;
-      return {
-        idIncidente: i.idIncidente || i.IdIncidente,
-        nombreUsuario: i.nombreUsuario || `Usuario #${i.idUsuario || i.IdUsuario || '?'}`,
-        facultad: i.facultad || i.Facultad || rawZona || '—',
-        zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
-        tipoIncidente: i.tipoIncidente || i.TipoIncidente,
-        mensaje: i.descripcion || i.Descripcion || i.mensaje || i.Mensaje || i.tipoIncidente || i.TipoIncidente,
-        fechaReporte: i.fechaReporte || i.FechaReporte,
-        estado: i.estado || i.Estado || 'Activo',
-        guardiaAsignado: i.guardiaAsignado || i.GuardiaAsignado || '—'
-      };
-    });
-
-    setIncidentesDB(mapeados);
-  };
+  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'customers'>('notificaciones');
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
-    cargarIncidentes().catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
+    fetch('http://localhost:5008/api/incidents')
+      .then(r => r.json())
+      .then((data: any[]) => {
+        const mapeados: AlertaIncidente[] = data.map(i => ({
+          idIncidente: i.idIncidente,
+          nombreUsuario: `Usuario #${i.idUsuario}`,
+          facultad: i.zona ?? '—',
+          zona: i.zona ?? '—',
+          tipoIncidente: i.tipoIncidente,
+          mensaje: i.tipoIncidente,
+          fechaReporte: i.fechaReporte
+        }));
+        setIncidentesDB(mapeados);
+      })
+      .catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
   }, []);
-
-  const asumirIncidente = async (incidente: AlertaIncidente) => {
-    if (asumiendoId === incidente.idIncidente || incidente.estado?.toLowerCase() === 'asumido') {
-      return;
-    }
-
-    setAsumiendoId(incidente.idIncidente);
-
-    try {
-      const response = await fetch(`${INCIDENTS_URL}/api/incidents/${incidente.idIncidente}/asignar`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${usuario.token}`,
-        },
-        body: JSON.stringify({
-          guardiaAsignado: usuario.nombre || 'Guardia asignado'
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.mensaje ?? `Error ${response.status} al asumir el incidente`);
-      }
-
-      const data = await response.json();
-      setIncidentesDB((prev) => prev.map((item) => (
-        item.idIncidente === incidente.idIncidente
-          ? {
-              ...item,
-              estado: data.estado ?? 'Asumido',
-              guardiaAsignado: data.guardiaAsignado ?? usuario.nombre
-            }
-          : item
-      )));
-    } catch (err) {
-      console.error(err);
-      await cargarIncidentes();
-    } finally {
-      setAsumiendoId(null);
-    }
-  };
 
   // Unir datos de BD + nuevas alertas SignalR (las nuevas van primero)
-  const alertas = [
-    ...alertasWS.map((i, idx) => {
-      const rawIdZona = (i as any).idZona || (i as any).IdZona;
-      const rawZona = i.zona || (i as any).Zona;
-      return {
-        ...i,
-        idIncidente: i.idIncidente || (i as any).IdIncidente || -(idx + 1),
-        nombreUsuario: i.nombreUsuario || (i as any).NombreUsuario || `Usuario #${(i as any).idUsuario || (i as any).IdUsuario || '?'}`,
-        facultad: (i as any).facultad || (i as any).Facultad || rawZona || '—',
-        zona: rawIdZona ? `Zona ${rawIdZona}` : (rawZona || '—'),
-        mensaje: (i as any).descripcion || (i as any).Descripcion || i.mensaje || (i as any).Mensaje || i.tipoIncidente || (i as any).TipoIncidente,
-        fechaReporte: i.fechaReporte || (i as any).FechaReporte || new Date().toISOString()
-      };
-    }) as AlertaIncidente[],
-    ...incidentesDB
-  ].reduce<AlertaIncidente[]>((acumuladas, alerta) => {
-    const existente = acumuladas.findIndex((item) => item.idIncidente === alerta.idIncidente);
-    if (existente >= 0) {
-      acumuladas[existente] = { ...acumuladas[existente], ...alerta };
-      return acumuladas;
-    }
-
-    acumuladas.push(alerta);
-    return acumuladas;
-  }, []);
+  const alertas = [...alertasWS, ...incidentesDB];
 
   if (!usuario?.token) { navigate('/login'); return null; }
 
@@ -176,16 +92,6 @@ const Admin = () => {
           </button>
 
           <button
-            className={`nav-item ${seccion === 'camaras' ? 'activo' : ''}`}
-            onClick={() => setSeccion('camaras')}
-          >
-            <span className="nav-icon-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
-            </span>
-            Cámaras
-          </button>
-
-          <button
             className={`nav-item ${seccion === 'customers' ? 'activo' : ''}`}
             onClick={() => setSeccion('customers')}
           >
@@ -219,14 +125,6 @@ const Admin = () => {
           <h1 className="admin-titulo">
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
-            {seccion === 'camaras' && (
-              <>
-                Administración de Cámaras
-                <span style={{ fontSize: '0.85rem', color: '#666', marginLeft: '10px', fontWeight: 'normal' }}>
-                  (listado con datos simulados de prueba para cuando backend este listo)
-                </span>
-              </>
-            )}
             {seccion === 'customers' && 'Customers'}
           </h1>
 
@@ -270,43 +168,28 @@ const Admin = () => {
                       <th>Fecha y hora</th>
                       <th>Estado</th>
                       <th>Guardia asignado</th>
-                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alertasPagina.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="tabla-vacia">
+                        <td colSpan={8} className="tabla-vacia">
                           Sin incidentes registrados. Esperando alertas en tiempo real...
                         </td>
                       </tr>
                     ) : (
-                      alertasPagina.map((a) => {
-                        const estado = a.estado ?? 'Activo';
-                        const asumido = estado.toLowerCase() === 'asumido';
-
-                        return (
-                          <tr key={a.idIncidente}>
-                            <td className="td-nombre">{a.nombreUsuario || `Usuario #${(a as any).idUsuario || '?'}`}</td>
-                            <td>Estudiante</td>
-                            <td>{a.facultad}</td>
-                            <td>{a.zona}</td>
-                            <td>{a.tipoIncidente}</td>
-                            <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
-                            <td><span className={asumido ? 'badge-asumido' : 'badge-activo'}>{estado}</span></td>
-                            <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
-                            <td className="td-acciones">
-                              <button
-                                className="btn-asumir"
-                                onClick={() => asumirIncidente(a)}
-                                disabled={asumido || asumiendoId === a.idIncidente}
-                              >
-                                {asumiendoId === a.idIncidente ? 'Asumiendo...' : asumido ? 'Asumido' : 'Asumir'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })
+                      alertasPagina.map((a) => (
+                        <tr key={a.idIncidente}>
+                          <td className="td-nombre">{a.nombreUsuario}</td>
+                          <td>Estudiante</td>
+                          <td>{a.facultad}</td>
+                          <td>{a.zona}</td>
+                          <td>{a.tipoIncidente}</td>
+                          <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
+                          <td><span className="badge-activo">Activo</span></td>
+                          <td className="td-guardia">{a.guardiaAsignado ?? '—'}</td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
@@ -334,14 +217,10 @@ const Admin = () => {
           )}
 
           {seccion === 'mapa' && (
-            <MapComponent 
-              incidentes={alertas}
-              onZonaSeleccionada={setZonaSeleccionada}
-            />
-          )}
-
-          {seccion === 'camaras' && (
-            <CamerasPanel />
+            <div className="seccion-placeholder">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></svg>
+              <p>Mapa del campus — próximamente</p>
+            </div>
           )}
 
           {seccion === 'customers' && (

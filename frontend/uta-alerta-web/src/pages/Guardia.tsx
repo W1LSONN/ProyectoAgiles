@@ -4,7 +4,7 @@ import { useSignalR } from '../hooks/useSignalR';
 const Guardia = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas, conectado: _conectado } = useSignalR('Guardias');
+  const { alertas, conectado } = useSignalR('Guardias');
 
   if (!usuario?.token) { navigate('/login'); return null; }
 
