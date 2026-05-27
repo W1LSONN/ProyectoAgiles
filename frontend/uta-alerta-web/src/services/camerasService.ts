@@ -1,4 +1,3 @@
-// Tipos para Cámaras
 export interface Camera {
   idCamera?: number;
   nombre: string;
@@ -14,149 +13,69 @@ export interface CameraFormData {
   zona: string;
 }
 
-// URL base del API (será proporcionada por el backend)
-const API_BASE_URL = 'http://localhost:5010'; // Ajustar puerto según backend
+const API_BASE_URL = import.meta.env.VITE_CAMERAS_URL ?? 'http://localhost:5010';
 const API_CAMERAS_ENDPOINT = `${API_BASE_URL}/api/cameras`;
 
-// --- Configuración de Mocks (Datos Simulados) ---
-const USE_MOCKS = true; // Cambiar a false cuando el backend esté listo
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
 
-let mockCameras: Camera[] = [
-  { idCamera: 1, nombre: 'Cámara Principal', ubicacion: 'Entrada Norte', zona: 'Zona 1', estado: 'activa' },
-  { idCamera: 2, nombre: 'Cámara Pasillo', ubicacion: 'Piso 2', zona: 'Zona 2', estado: 'activa' },
-  { idCamera: 3, nombre: 'Cámara Comedor', ubicacion: 'Patio Central', zona: 'Zona 1', estado: 'inactiva' }
-];
-let nextMockId = 4;
+const handleResponse = async <T>(response: Response): Promise<T> => {
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = data?.error || data?.mensaje || data?.message || response.statusText;
+    throw new Error(message || `HTTP ${response.status}`);
+  }
+  return data as T;
+};
 
-// Función auxiliar para simular el tiempo de respuesta de la red
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-// -------------------------------------------------
-
-/**
- * Obtener todas las cámaras
- * Backend debe implementar: GET /api/cameras
- */
 export const getCameras = async (): Promise<Camera[]> => {
-  if (USE_MOCKS) {
-    console.log('MOCK: Obteniendo cámaras...');
-    await delay(500);
-    return [...mockCameras];
-  }
-
-  try {
-    const response = await fetch(API_CAMERAS_ENDPOINT);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('Error al obtener cámaras:', error);
-    return [];
-  }
+  const response = await fetch(API_CAMERAS_ENDPOINT, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return await handleResponse<Camera[]>(response);
 };
 
-/**
- * Crear una nueva cámara
- * Backend debe implementar: POST /api/cameras
- * Body: { nombre: string, ubicacion: string, zona: string }
- */
-export const createCamera = async (data: CameraFormData): Promise<Camera | null> => {
-  if (USE_MOCKS) {
-    console.log('MOCK: Creando cámara...', data);
-    await delay(500);
-    const newCamera: Camera = {
-      idCamera: nextMockId++,
-      ...data,
-      estado: 'activa',
-      fechaCreacion: new Date().toISOString()
-    };
-    mockCameras.push(newCamera);
-    return newCamera;
-  }
-
-  try {
-    const response = await fetch(API_CAMERAS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('Error al crear cámara:', error);
-    throw error;
-  }
+export const createCamera = async (data: CameraFormData): Promise<Camera> => {
+  const response = await fetch(API_CAMERAS_ENDPOINT, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return await handleResponse<Camera>(response);
 };
 
-/**
- * Eliminar una cámara
- * Backend debe implementar: DELETE /api/cameras/{id}
- */
 export const deleteCamera = async (id: number): Promise<boolean> => {
-  if (USE_MOCKS) {
-    console.log(`MOCK: Eliminando cámara ${id}...`);
-    await delay(500);
-    mockCameras = mockCameras.filter(c => c.idCamera !== id);
-    return true;
-  }
-
-  try {
-    const response = await fetch(`${API_CAMERAS_ENDPOINT}/${id}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return true;
-  } catch (error) {
-    console.error('Error al eliminar cámara:', error);
-    throw error;
-  }
+  const response = await fetch(`${API_CAMERAS_ENDPOINT}/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  await handleResponse<null>(response);
+  return true;
 };
 
-/**
- * Actualizar una cámara
- * Backend debe implementar: PUT /api/cameras/{id}
- */
-export const updateCamera = async (id: number, data: CameraFormData): Promise<Camera | null> => {
-  if (USE_MOCKS) {
-    console.log(`MOCK: Actualizando cámara ${id}...`, data);
-    await delay(500);
-    const index = mockCameras.findIndex(c => c.idCamera === id);
-    if (index !== -1) {
-      mockCameras[index] = { ...mockCameras[index], ...data };
-      return mockCameras[index];
-    }
-    throw new Error('Cámara no encontrada en mocks');
-  }
-
-  try {
-    const response = await fetch(`${API_CAMERAS_ENDPOINT}/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('Error al actualizar cámara:', error);
-    throw error;
-  }
+export const updateCamera = async (id: number, data: CameraFormData): Promise<Camera> => {
+  const response = await fetch(`${API_CAMERAS_ENDPOINT}/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  return await handleResponse<Camera>(response);
 };
 
-/**
- * Obtener cámaras por zona
- * Backend debe implementar: GET /api/cameras/zona/{zonaId}
- */
 export const getCamerasByZona = async (zonaId: string): Promise<Camera[]> => {
-  if (USE_MOCKS) {
-    console.log(`MOCK: Obteniendo cámaras de la zona ${zonaId}...`);
-    await delay(500);
-    return mockCameras.filter(c => c.zona === zonaId);
-  }
-
-  try {
-    const response = await fetch(`${API_CAMERAS_ENDPOINT}/zona/${zonaId}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch (error) {
-    console.error('Error al obtener cámaras por zona:', error);
-    return [];
-  }
+  const response = await fetch(`${API_CAMERAS_ENDPOINT}/zona/${encodeURIComponent(zonaId)}`, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return await handleResponse<Camera[]>(response);
 };
