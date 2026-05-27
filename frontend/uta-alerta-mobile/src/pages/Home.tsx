@@ -12,6 +12,7 @@ import {
   crearGrupo as apiCrearGrupo,
   unirseGrupo as apiUnirseGrupo,
   salirGrupo as apiSalirGrupo,
+  obtenerGrupoDetalle,
   Grupo,
 } from '../services/groupService';
 
@@ -173,7 +174,11 @@ const Home: React.FC = () => {
         descripcion: descripcionGrupo.trim(),
         idCreador: usuario.idUsuario,
       }, usuario.token);
-      setGrupos((prev) => [grupoCreado, ...prev]);
+      
+      // Obtener los detalles completos del grupo (incluyendo miembros)
+      const grupoCompleto = await obtenerGrupoDetalle(grupoCreado.idGrupo, usuario.token);
+      
+      setGrupos((prev) => [grupoCompleto, ...prev]);
       setNombreGrupo('');
       setDescripcionGrupo('');
     } catch (error) {
