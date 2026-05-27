@@ -171,6 +171,7 @@ const Home: React.FC = () => {
       const grupoCreado = await apiCrearGrupo({
         nombre: nombreGrupo.trim(),
         descripcion: descripcionGrupo.trim(),
+        idCreador: usuario.idUsuario,
       }, usuario.token);
       setGrupos((prev) => [grupoCreado, ...prev]);
       setNombreGrupo('');
@@ -190,10 +191,9 @@ const Home: React.FC = () => {
     setGruposError(null);
 
     try {
-      const grupoActualizado = await apiUnirseGrupo(grupoId, usuario.token);
-      setGrupos((prev) => prev.map((grupo) => (
-        grupo.idGrupo === grupoId ? grupoActualizado : grupo
-      )));
+      await apiUnirseGrupo(grupoId, usuario.idUsuario, usuario.token);
+      // Recargar el grupo para obtener los datos actualizados
+      await recargarGrupos();
     } catch (error) {
       const e = error as Error;
       setGruposError(e.message || 'No se pudo unir al grupo');
@@ -208,10 +208,9 @@ const Home: React.FC = () => {
     setGruposError(null);
 
     try {
-      const grupoActualizado = await apiSalirGrupo(grupoId, usuario.token);
-      setGrupos((prev) => prev.map((grupo) => (
-        grupo.idGrupo === grupoId ? grupoActualizado : grupo
-      )));
+      await apiSalirGrupo(grupoId, usuario.idUsuario, usuario.token);
+      // Recargar el grupo para obtener los datos actualizados
+      await recargarGrupos();
     } catch (error) {
       const e = error as Error;
       setGruposError(e.message || 'No se pudo salir del grupo');
@@ -221,7 +220,7 @@ const Home: React.FC = () => {
   };
 
   const estaEnGrupo = (grupo: Grupo) => {
-    if (!usuario) return false;
+    if (!usuario || !grupo.miembros) return false;
     return grupo.miembros.some((miembro) => miembro.idUsuario === usuario.idUsuario);
   };
 
@@ -430,15 +429,15 @@ const Home: React.FC = () => {
                         </IonButton>
                       </div>
                       <div className="grupo-meta">
-                        <span>{grupo.miembros.length} miembro{grupo.miembros.length === 1 ? '' : 's'}</span>
+                        <span>{grupo.miembros?.length ?? 0} miembro{(grupo.miembros?.length ?? 0) === 1 ? '' : 's'}</span>
                       </div>
                       <div className="grupo-members">
-                        {grupo.miembros.length === 0 ? (
+                        {!grupo.miembros || grupo.miembros.length === 0 ? (
                           <span className="grupo-member-empty">Sin miembros aún</span>
                         ) : (
                           grupo.miembros.map((miembro) => (
-                            <span key={miembro.idUsuario} className="grupo-member-pill">
-                              {miembro.nombre}
+                            <span key={miembro.idUsuarioGrupo} className="grupo-member-pill">
+                              Usuario {miembro.idUsuario}
                             </span>
                           ))
                         )}
