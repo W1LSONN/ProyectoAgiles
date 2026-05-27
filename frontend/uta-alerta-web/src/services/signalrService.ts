@@ -12,6 +12,8 @@ export interface AlertaIncidente {
     fechaReporte: string;
     estado?: string;
     guardiaAsignado?: string;
+    rol?: string;
+    carrera?: string;
 }
 
 class SignalRService {
