@@ -41,7 +41,9 @@ public class NotificationsController : ControllerBase
             Zona          = request.Zona,
             TipoIncidente = request.TipoIncidente,
             Mensaje       = $"🚨 Nuevo incidente: {request.TipoIncidente} en {request.Zona}",
-            FechaReporte  = request.FechaReporte
+            FechaReporte  = request.FechaReporte,
+            Latitud       = request.Latitud,
+            Longitud      = request.Longitud
         };
 
         // Enviar a Guardias
@@ -69,4 +71,6 @@ public class AlertaRequest
     public string Zona { get; set; } = string.Empty;
     public string TipoIncidente { get; set; } = string.Empty;
     public DateTime FechaReporte { get; set; }
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
 }

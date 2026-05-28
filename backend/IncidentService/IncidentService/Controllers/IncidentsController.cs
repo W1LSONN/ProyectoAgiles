@@ -44,7 +44,9 @@ public class IncidentsController : ControllerBase
             Descripcion   = request.Descripcion,
             Estado        = "Activo",
             GuardiaAsignado = null,
-            FechaReporte  = DateTime.Now
+            FechaReporte  = DateTime.Now,
+            Latitud       = request.Latitud,
+            Longitud      = request.Longitud
         };
 
         _context.Incidentes.Add(nuevoIncidente);
@@ -59,7 +61,9 @@ public class IncidentsController : ControllerBase
             Facultad      = zona?.Nombre ?? "UTA",
             Zona          = zona?.Nombre ?? $"Zona {nuevoIncidente.IdZona}",
             TipoIncidente = nuevoIncidente.TipoIncidente,
-            FechaReporte  = nuevoIncidente.FechaReporte
+            FechaReporte  = nuevoIncidente.FechaReporte,
+            Latitud       = nuevoIncidente.Latitud,
+            Longitud      = nuevoIncidente.Longitud
         });
 
         
@@ -133,7 +137,9 @@ public class IncidentsController : ControllerBase
             descripcion   = incidente.Descripcion,
             estado        = incidente.Estado,
             guardiaAsignado = incidente.GuardiaAsignado,
-            fechaReporte  = incidente.FechaReporte
+            fechaReporte  = incidente.FechaReporte,
+            latitud       = incidente.Latitud,
+            longitud      = incidente.Longitud
         });
     }
 
@@ -151,7 +157,9 @@ public class IncidentsController : ControllerBase
                 tipoIncidente = i.TipoIncidente,
                 estado        = i.Estado,
                 guardiaAsignado = i.GuardiaAsignado,
-                fechaReporte  = i.FechaReporte
+                fechaReporte  = i.FechaReporte,
+                latitud       = i.Latitud,
+                longitud      = i.Longitud
             })
             .ToListAsync();
 

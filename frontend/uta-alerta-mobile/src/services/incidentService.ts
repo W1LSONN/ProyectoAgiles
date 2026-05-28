@@ -6,6 +6,8 @@ export interface CrearIncidentePayload {
     idZona: number;
     tipoIncidente: string;
     descripcion?: string;
+    latitud?: number;
+    longitud?: number;
 }
 
 export interface IncidenteCreado {
@@ -16,6 +18,8 @@ export interface IncidenteCreado {
     estado: string;
     fechaReporte: string;
     mensaje: string;
+    latitud?: number;
+    longitud?: number;
 }
 
 /**

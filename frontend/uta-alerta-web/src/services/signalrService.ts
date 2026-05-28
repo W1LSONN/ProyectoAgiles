@@ -14,6 +14,8 @@ export interface AlertaIncidente {
     guardiaAsignado?: string;
     rol?: string;
     carrera?: string;
+    latitud?: number;
+    longitud?: number;
 }
 
 class SignalRService {
