@@ -25,4 +25,6 @@ public class AlertaIncidenteDto
     public string TipoIncidente { get; set; } = string.Empty;
     public string Mensaje { get; set; } = string.Empty;
     public DateTime FechaReporte { get; set; }
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
 }

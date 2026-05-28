@@ -142,23 +142,77 @@ const Home: React.FC = () => {
     setEnviando(true);
     setErrorAlerta(null);
 
-    try {
-      await crearIncidente(
-        {
-          idUsuario: usuario.idUsuario,
-          idZona: 1,
-          tipoIncidente: motivo,
-          descripcion: `Alerta disparada desde app móvil — motivo: ${motivo}`,
+    const ejecutarEnvio = async (lat?: number, lng?: number) => {
+      try {
+        let idZona = 1; // Por defecto Zona 1
+        if (lat !== undefined && lng !== undefined) {
+          // Coordenadas aproximadas del centro de cada una de las 4 zonas de la UTA
+          const centrosZonas = [
+            { id: 1, lat: -1.267476, lng: -78.624879 },
+            { id: 2, lat: -1.269757, lng: -78.623375 },
+            { id: 3, lat: -1.267611, lng: -78.623506 },
+            { id: 4, lat: -1.269513, lng: -78.625190 }
+          ];
+          
+          let minDistance = Infinity;
+          for (const centro of centrosZonas) {
+            // Distancia euclidiana al cuadrado (suficiente para distancias muy cortas)
+            const dist = Math.pow(lat - centro.lat, 2) + Math.pow(lng - centro.lng, 2);
+            if (dist < minDistance) {
+              minDistance = dist;
+              idZona = centro.id;
+            }
+          }
+        } else {
+          // Fallback robusto por facultad/carrera si la geolocalización no está activa
+          const fac = (usuario.facultad || '').toLowerCase();
+          if (fac.includes('arquitectura') || fac.includes('humanidades') || fac.includes('diseño')) {
+            idZona = 1;
+          } else if (fac.includes('administrativas') || fac.includes('administración') || fac.includes('empresa')) {
+            idZona = 2;
+          } else if (fac.includes('salud') || fac.includes('medicina') || fac.includes('enfermería')) {
+            idZona = 3;
+          } else if (fac.includes('ingeniería') || fac.includes('sistemas') || fac.includes('fci')) {
+            idZona = 4;
+          }
+        }
+
+        await crearIncidente(
+          {
+            idUsuario: usuario.idUsuario,
+            idZona,
+            tipoIncidente: motivo,
+            descripcion: `Alerta disparada desde app móvil — motivo: ${motivo}`,
+            latitud: lat,
+            longitud: lng
+          },
+          usuario.token
+        );
+        setActivado(true);
+      } catch (error) {
+        const e = error as Error;
+        setErrorAlerta(e.message || 'No se pudo enviar la alerta. Verifica tu conexión.');
+        setActivado(false);
+      } finally {
+        setEnviando(false);
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          ejecutarEnvio(latitude, longitude);
         },
-        usuario.token
+        (error) => {
+          console.warn('Error al obtener geolocalización, usando fallback por facultad', error);
+          ejecutarEnvio();
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
       );
-      setActivado(true);
-    } catch (error) {
-      const e = error as Error;
-      setErrorAlerta(e.message || 'No se pudo enviar la alerta. Verifica tu conexión.');
-      setActivado(false);
-    } finally {
-      setEnviando(false);
+    } else {
+      console.warn('Geolocalización no soportada en este dispositivo, usando fallback por facultad');
+      ejecutarEnvio();
     }
   };
 

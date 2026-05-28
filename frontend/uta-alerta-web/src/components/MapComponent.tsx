@@ -161,8 +161,8 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
             const offsetLat = ((idNum * 13) % 100 - 50) * 0.000004;
             const offsetLng = ((idNum * 17) % 100 - 50) * 0.000004;
-            const lat = latBase + offsetLat;
-            const long = longBase + offsetLng;
+            const lat = (incidente.latitud != null && incidente.latitud !== 0) ? incidente.latitud : (latBase + offsetLat);
+            const long = (incidente.longitud != null && incidente.longitud !== 0) ? incidente.longitud : (longBase + offsetLng);
 
             // Obtener el nombre descriptivo que viene desde la BD
             const nombreBd = (incidente as any).facultad;

@@ -20,6 +20,8 @@ import {
 import { menuOutline, personCircleOutline } from 'ionicons/icons';
 import './Guardia.css';
 import * as signalR from '@microsoft/signalr';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface NotificacionGuardia {
   idIncidente: number;
@@ -34,11 +36,123 @@ interface NotificacionGuardia {
   mapaUrl?: string;
   estado?: string;
   guardiaAsignado?: string;
+  latitud?: number;
+  longitud?: number;
 }
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 const SIGNALR_URL = import.meta.env.VITE_NOTIFICATION_URL ? `${import.meta.env.VITE_NOTIFICATION_URL}/hubs/incident` : 'http://localhost:5009/hubs/incident';
 const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:5007';
+
+const CAMPUS_ZONES = [
+  {
+    nombre: 'Zona 1 — Arquitectura / Humanidades',
+    color: '#FF4444',
+    coordenadas: [
+      [-1.266416, -78.625299],
+      [-1.266498, -78.624148],
+      [-1.268590, -78.624238],
+      [-1.268400, -78.625831]
+    ]
+  },
+  {
+    nombre: 'Zona 2 — Administración',
+    color: '#44FF44',
+    coordenadas: [
+      [-1.268590, -78.624238],
+      [-1.268779, -78.622644],
+      [-1.270979, -78.622292],
+      [-1.270681, -78.624328]
+    ]
+  },
+  {
+    nombre: 'Zona 3 — Ciencias de la Salud',
+    color: '#4444FF',
+    coordenadas: [
+      [-1.266498, -78.624148],
+      [-1.266580, -78.622997],
+      [-1.268779, -78.622644],
+      [-1.268590, -78.624238]
+    ]
+  },
+  {
+    nombre: 'Zona 4 — Ingeniería / FCI',
+    color: '#FFD700',
+    coordenadas: [
+      [-1.268400, -78.625831],
+      [-1.268590, -78.624238],
+      [-1.270681, -78.624328],
+      [-1.270384, -78.626364]
+    ]
+  }
+];
+
+const incidentIcon = L.divIcon({
+  html: '<div style="font-size: 24px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); text-shadow: 0 0 2px black;">🚨</div>',
+  className: 'custom-incident-marker',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -15]
+});
+
+const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: string }> = ({ lat, lng, zonaNombre }) => {
+  const mapContainerRef = React.useRef<HTMLDivElement>(null);
+  const mapRef = React.useRef<L.Map | null>(null);
+
+  React.useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current, {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([lat, lng], 17);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(mapRef.current);
+
+      CAMPUS_ZONES.forEach(z => {
+        L.polygon(z.coordenadas as L.LatLngExpression[], {
+          color: z.color,
+          weight: 2,
+          opacity: 0.6,
+          fillOpacity: 0.15,
+          fillColor: z.color
+        }).addTo(mapRef.current!);
+      });
+
+      L.marker([lat, lng], { icon: incidentIcon })
+        .addTo(mapRef.current)
+        .bindPopup(`<b>Incidente:</b><br/>${zonaNombre || 'Ubicación exacta'}`)
+        .openPopup();
+    } else {
+      mapRef.current.setView([lat, lng], 17);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [lat, lng, zonaNombre]);
+
+  return (
+    <div 
+      ref={mapContainerRef} 
+      style={{ 
+        height: '240px', 
+        width: '100%', 
+        borderRadius: '12px', 
+        marginTop: '12px', 
+        boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+        border: '1px solid #ccc',
+        zIndex: 1
+      }} 
+    />
+  );
+};
 
 const mapIncidente = (incidente: any): NotificacionGuardia => {
   const rawIdIncidente = incidente.idIncidente ?? incidente.IdIncidente ?? incidente.id ?? incidente.ID;
@@ -62,6 +176,8 @@ const mapIncidente = (incidente: any): NotificacionGuardia => {
     mapaUrl: incidente.mapaUrl ?? incidente.MapaUrl,
     estado: incidente.estado ?? incidente.Estado ?? 'Activo',
     guardiaAsignado: incidente.guardiaAsignado ?? incidente.GuardiaAsignado,
+    latitud: incidente.latitud ?? incidente.Latitud,
+    longitud: incidente.longitud ?? incidente.Longitud,
   };
 };
 
@@ -407,11 +523,39 @@ const Guardia: React.FC = () => {
                 )}
                 <p><strong>Motivo:</strong> {seleccionada.tipoIncidente}</p>
                 <p><strong>Zona:</strong> {seleccionada.zona}</p>
-                {seleccionada.mapaUrl ? (
-                  <img src={seleccionada.mapaUrl} alt="Mapa" className="guardia-mapa" />
-                ) : (
-                  <div className="guardia-mapa placeholder">Mapa no disponible</div>
-                )}
+                {(() => {
+                  let lat = seleccionada.latitud;
+                  let lng = seleccionada.longitud;
+                  
+                  // Si no hay coordenadas exactas de GPS, usar el centro de la zona respectiva
+                  if (lat == null || lng == null || lat === 0 || lng === 0) {
+                    const zStr = String(seleccionada.zona || '').toLowerCase();
+                    if (zStr.includes('1')) {
+                      lat = -1.267476;
+                      lng = -78.624879;
+                    } else if (zStr.includes('2')) {
+                      lat = -1.269757;
+                      lng = -78.623375;
+                    } else if (zStr.includes('3')) {
+                      lat = -1.267611;
+                      lng = -78.623506;
+                    } else if (zStr.includes('4')) {
+                      lat = -1.269513;
+                      lng = -78.625190;
+                    } else {
+                      lat = -1.2688;
+                      lng = -78.6248; // Centro de la UTA
+                    }
+                  }
+                  
+                  return (
+                    <MobileIncidentMap 
+                      lat={lat} 
+                      lng={lng} 
+                      zonaNombre={seleccionada.zona} 
+                    />
+                  );
+                })()}
 
                 <div className="modal-actions" style={{ marginTop: '20px' }}>
                   {seleccionada.estado === 'Activo' && (
