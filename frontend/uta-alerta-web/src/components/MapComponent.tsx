@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Popup, Marker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { getCameras, type Camera } from '../services/camerasService';
 import { ZONAS, getCentroPorZona, type Zona } from '../services/zonasService';
 import type { AlertaIncidente } from '../services/signalrService';
 import './MapComponent.css';
@@ -28,6 +29,7 @@ interface MapComponentProps {
 const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
   const [mostrarTodos, setMostrarTodos] = useState(false);
+  const [camaras, setCamaras] = useState<Camera[]>([]);
 
   // Ayudante ultra robusto para ubicar la zona correcta sin importar cómo venga de la base de datos
   const encontrarZona = (inc: any): Zona | undefined => {
@@ -48,6 +50,21 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
       return false;
     });
   };
+
+  // Cargar cámaras desde la API al montar
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const datos = await getCameras();
+        if (mounted) setCamaras(datos);
+      } catch (e) {
+        // Silencioso: el panel de admins usa mock si el backend no existe
+        console.warn('No se pudieron cargar cámaras', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Agrupar incidentes por zona (Calculado en tiempo real sin usar useEffect)
   const incidentesPorZona: Record<string, AlertaIncidente[]> = {};
@@ -156,6 +173,50 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
                       <p><strong>Usuario:</strong> {incidente.nombreUsuario || `Usuario #${(incidente as any).idUsuario || '?'}`}</p>
                     <p><strong>Fecha:</strong> {new Date(incidente.fechaReporte).toLocaleString('es-EC')}</p>
                       <p><strong>Descripción:</strong> {incidente.mensaje || (incidente as any).descripcion}</p>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* Marcadores de cámaras */}
+          {camaras.map((cam, idx) => {
+            // Intentar encontrar zona por la cadena, similar a incidentes
+            const zona = encontrarZona(cam) as any;
+            // Si la cámara trae zona en otro formato, intentar usar cam.zona directamente
+            const zonaId = zona?.id || String(cam.zona || '').toLowerCase();
+            const [latBase, longBase] = getCentroPorZona(zonaId);
+
+            const idNum = (cam.idCamera || idx) as number;
+            const offsetLat = ((idNum * 11) % 100 - 50) * 0.000004;
+            const offsetLng = ((idNum * 19) % 100 - 50) * 0.000004;
+            const lat = latBase + offsetLat;
+            const long = longBase + offsetLng;
+
+            const cameraIcon = L.icon({
+              iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+              iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+              shadowUrl,
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              tooltipAnchor: [16, -28],
+              shadowSize: [41, 41],
+            });
+
+            return (
+              <Marker
+                key={`cam-${cam.idCamera || idx}`}
+                position={[lat, long] as L.LatLngExpression}
+                icon={cameraIcon}
+              >
+                <Popup>
+                  <div className="popup-incidente">
+                    <h5>{cam.nombre}</h5>
+                    <p><strong>Ubicación:</strong> {cam.ubicacion}</p>
+                    <p><strong>Zona:</strong> {cam.zona}</p>
+                    <p><strong>Estado:</strong> {cam.estado || 'Activa'}</p>
+                    <p><small>{cam.fechaCreacion ? new Date(cam.fechaCreacion).toLocaleString('es-EC') : '—'}</small></p>
                   </div>
                 </Popup>
               </Marker>

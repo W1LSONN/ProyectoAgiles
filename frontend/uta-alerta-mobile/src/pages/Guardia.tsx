@@ -16,6 +16,8 @@ import {
 import { menuOutline, personCircleOutline } from 'ionicons/icons';
 import './Guardia.css';
 import * as signalR from '@microsoft/signalr';
+import { getCameras, type Camera } from '../services/camerasService';
+import { ZONAS, getCentroPorZona } from '../services/zonasService';
 
 interface NotificacionGuardia {
   idIncidente: number;
@@ -36,8 +38,19 @@ const Guardia: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<NotificacionGuardia | null>(null);
   const [asignando, setAsignando] = useState(false);
+  const [camaras, setCamaras] = useState<Camera[]>([]);
 
   useEffect(() => {
+    // Cargar cámaras para mostrar en el mapa del modal
+    (async () => {
+      try {
+        const datos = await getCameras();
+        setCamaras(datos);
+      } catch (e) {
+        // ignored: backend puede no existir en dev
+      }
+    })();
+
     const usuarioRaw = localStorage.getItem('usuario');
     const token = localStorage.getItem('token');
     if (!token || !usuarioRaw) {
@@ -198,7 +211,40 @@ const Guardia: React.FC = () => {
                 <p><strong>Motivo:</strong> {seleccionada.tipoIncidente}</p>
                 <p><strong>Zona:</strong> {seleccionada.zona}</p>
                 {seleccionada.mapaUrl ? (
-                  <img src={seleccionada.mapaUrl} alt="Mapa" className="guardia-mapa" />
+                  <div className="map-wrapper">
+                    <img src={seleccionada.mapaUrl} alt="Mapa" className="guardia-mapa" />
+                    <div className="map-overlay" aria-hidden>
+                      {camaras.map((cam) => {
+                        // obtener centro de la zona y convertir a % relativo de la imagen
+                        const zonaId = String(cam.zona || '').toLowerCase();
+                        const [lat, lon] = getCentroPorZona(zonaId);
+
+                        // construir bbox a partir de ZONAS
+                        const allCoords = ZONAS.flatMap(z => z.coordenadas);
+                        const lats = allCoords.map(c => c[0]);
+                        const lons = allCoords.map(c => c[1]);
+                        const minLat = Math.min(...lats);
+                        const maxLat = Math.max(...lats);
+                        const minLon = Math.min(...lons);
+                        const maxLon = Math.max(...lons);
+
+                        const topPct = ((maxLat - lat) / (maxLat - minLat)) * 100;
+                        const leftPct = ((lon - minLon) / (maxLon - minLon)) * 100;
+
+                        return (
+                          <button
+                            key={cam.idCamera}
+                            className="map-marker"
+                            style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+                            title={cam.nombre}
+                            onClick={() => alert(`${cam.nombre} — ${cam.ubicacion}`)}
+                          >
+                            📷
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ) : (
                   <div className="guardia-mapa placeholder">Mapa no disponible</div>
                 )}
