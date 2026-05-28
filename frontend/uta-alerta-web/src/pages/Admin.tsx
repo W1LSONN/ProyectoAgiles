@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
 import MapComponent from '../components/MapComponent';
 import CamerasPanel from '../components/CamerasPanel';
+import CustomersPanel from '../components/CustomersPanel';
 import type { AlertaIncidente } from '../services/signalrService';
 import type { Zona } from '../services/zonasService';
 import './Admin.css';
@@ -222,9 +223,6 @@ const Admin = () => {
             {seccion === 'camaras' && (
               <>
                 Administración de Cámaras
-                <span style={{ fontSize: '0.85rem', color: '#666', marginLeft: '10px', fontWeight: 'normal' }}>
-                  (listado con datos simulados de prueba para cuando backend este listo)
-                </span>
               </>
             )}
             {seccion === 'customers' && 'Customers'}
@@ -345,10 +343,7 @@ const Admin = () => {
           )}
 
           {seccion === 'customers' && (
-            <div className="seccion-placeholder">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-              <p>Gestión de usuarios — próximamente</p>
-            </div>
+            <CustomersPanel />
           )}
 
         </div>

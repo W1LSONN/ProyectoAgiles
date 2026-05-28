@@ -38,6 +38,7 @@ interface NotificacionGuardia {
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 const SIGNALR_URL = import.meta.env.VITE_NOTIFICATION_URL ? `${import.meta.env.VITE_NOTIFICATION_URL}/hubs/incident` : 'http://localhost:5009/hubs/incident';
+const AUTH_URL = import.meta.env.VITE_AUTH_URL ?? 'http://localhost:5007';
 
 const mapIncidente = (incidente: any): NotificacionGuardia => {
   const rawIdIncidente = incidente.idIncidente ?? incidente.IdIncidente ?? incidente.id ?? incidente.ID;
@@ -75,6 +76,8 @@ const Guardia: React.FC = () => {
 
   const usuarioRaw = localStorage.getItem('usuario');
   const usuarioObj = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+  const [disponible, setDisponible] = useState<boolean>(usuarioObj?.disponible ?? true);
+  const [actualizandoDisponibilidad, setActualizandoDisponibilidad] = useState(false);
 
   useEffect(() => {
     const usuarioRaw = localStorage.getItem('usuario');
@@ -263,6 +266,39 @@ const Guardia: React.FC = () => {
     }
   });
 
+  const handleToggleDisponibilidad = async (checked: boolean) => {
+    const token = localStorage.getItem('token');
+    if (!token || !usuarioObj?.idUsuario) return;
+    
+    setActualizandoDisponibilidad(true);
+    
+    try {
+      const res = await fetch(`${AUTH_URL}/api/auth/usuarios/${usuarioObj.idUsuario}/disponibilidad`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ disponible: checked })
+      });
+
+      if (!res.ok) {
+        throw new Error('Error al actualizar disponibilidad');
+      }
+
+      setDisponible(checked);
+      const updatedUsuario = { ...usuarioObj, disponible: checked };
+      localStorage.setItem('usuario', JSON.stringify(updatedUsuario));
+    } catch (err) {
+      console.error(err);
+      setError('No se pudo actualizar la disponibilidad');
+      // Revertir el toggle
+      setDisponible(!checked);
+    } finally {
+      setActualizandoDisponibilidad(false);
+    }
+  };
+
   return (
     <IonPage>
       <IonContent className="guardia-content" fullscreen>
@@ -276,7 +312,17 @@ const Guardia: React.FC = () => {
 
           <section className="guardia-disponibilidad" aria-label="Disponibilidad del guardia">
             <span className="guardia-disponibilidad-texto">Disponibilidad</span>
-            <IonToggle checked={true} className="guardia-toggle" />
+            <IonToggle 
+              checked={disponible} 
+              onIonChange={(e) => {
+                // Solo disparamos si es un evento del usuario y diferente al estado actual
+                if (e.detail.checked !== disponible) {
+                  handleToggleDisponibilidad(e.detail.checked);
+                }
+              }}
+              disabled={actualizandoDisponibilidad}
+              className="guardia-toggle" 
+            />
           </section>
 
           <main className="guardia-main">

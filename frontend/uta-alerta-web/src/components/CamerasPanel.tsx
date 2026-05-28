@@ -1,15 +1,7 @@
 import { useState, useEffect } from 'react';
-import { type Camera, type CameraFormData } from '../services/camerasService';
+import { type Camera, type CameraFormData, getCameras, createCamera, deleteCamera } from '../services/camerasService';
 import { ZONAS } from '../services/zonasService';
 import './CamerasPanel.css';
-
-// --- DATOS MOCK TEMPORALES (Simulación de Base de Datos) ---
-let mockCameras: Camera[] = [
-  { idCamera: 1, nombre: 'Cámara Principal Norte', ubicacion: 'Entrada Principal FICA', zona: 'zona-norte', estado: 'activa', fechaCreacion: new Date(Date.now() - 86400000).toISOString() },
-  { idCamera: 2, nombre: 'Cámara Parqueadero Sur', ubicacion: 'Parqueadero Estudiantes', zona: 'zona-sur', estado: 'activa', fechaCreacion: new Date(Date.now() - 172800000).toISOString() },
-  { idCamera: 3, nombre: 'Cámara Laboratorios', ubicacion: 'Pasillo Lab. Sistemas', zona: 'zona-este', estado: 'mantenimiento', fechaCreacion: new Date(Date.now() - 259200000).toISOString() },
-];
-// -----------------------------------------------------------
 
 const CamerasPanel = () => {
   const [camaras, setCamaras] = useState<Camera[]>([]);
@@ -20,20 +12,17 @@ const CamerasPanel = () => {
   // Estado del formulario
   const [formData, setFormData] = useState<CameraFormData>({
     nombre: '',
-    ubicacion: '',
-    zona: ZONAS[0]?.id || 'zona-norte',
+    latitud: -1.268590, // Por defecto el centro de la universidad
+    longitud: -78.624238,
+    idZona: 1, // idZona numérico
   });
 
   const cargarCamaras = async () => {
     setCargando(true);
     setError(null);
     try {
-      // const datos = await getCameras();
-      // setCamaras(datos);
-      
-      // Simulación de latencia de red (500ms)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setCamaras([...mockCameras]);
+      const datos = await getCameras();
+      setCamaras(datos);
     } catch {
       setError('No se pudieron cargar las cámaras. Verifica que el servidor esté activo.');
       setCamaras([]);
@@ -44,14 +33,15 @@ const CamerasPanel = () => {
 
   // Cargar cámaras al montar el componente
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarCamaras();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name as keyof CameraFormData]: value,
+      [name]: type === 'number' ? (parseFloat(value) || 0) : (name === 'idZona' ? parseInt(value) || 1 : value),
     }));
   };
 
@@ -65,32 +55,21 @@ const CamerasPanel = () => {
       setError('El nombre de la cámara es obligatorio');
       return;
     }
-    if (!formData.ubicacion.trim()) {
-      setError('La ubicación es obligatoria');
+    if (formData.latitud === 0 || formData.longitud === 0) {
+      setError('Las coordenadas son obligatorias');
       return;
     }
 
     setCargando(true);
     try {
-      // await createCamera(formData);
-
-      // Simulación de guardado en red (500ms)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const nuevaCamara: Camera = {
-        idCamera: Math.floor(Math.random() * 10000) + 10,
-        nombre: formData.nombre,
-        ubicacion: formData.ubicacion,
-        zona: formData.zona,
-        estado: 'activa',
-        fechaCreacion: new Date().toISOString()
-      };
-      mockCameras.push(nuevaCamara);
+      await createCamera(formData);
 
       setExito('Cámara registrada exitosamente');
       setFormData({
         nombre: '',
-        ubicacion: '',
-        zona: ZONAS[0]?.id || 'zona-norte',
+        latitud: -1.268590,
+        longitud: -78.624238,
+        idZona: 1,
       });
       await cargarCamaras();
 
@@ -118,11 +97,7 @@ const CamerasPanel = () => {
     setCargando(true);
 
     try {
-      // await deleteCamera(id);
-
-      // Simulación de borrado en red (500ms)
-      await new Promise(resolve => setTimeout(resolve, 500));
-      mockCameras = mockCameras.filter(c => c.idCamera !== id);
+      await deleteCamera(id);
 
       setExito('Cámara eliminada exitosamente');
       await cargarCamaras();
@@ -136,8 +111,10 @@ const CamerasPanel = () => {
     }
   };
 
-  const getNombreZona = (zonaId: string) => {
-    return ZONAS.find(z => z.id === zonaId)?.nombre || zonaId;
+  const getNombreZona = (zonaId: number | undefined) => {
+    if (!zonaId) return 'Desconocida';
+    // Mapear el ID numérico al ID string de ZONAS (ej: 1 -> 'zona 1')
+    return ZONAS.find(z => z.id === `zona ${zonaId}`)?.nombre || `Zona ${zonaId}`;
   };
 
   return (
@@ -163,30 +140,45 @@ const CamerasPanel = () => {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="ubicacion">Ubicación *</label>
-            <input
-              type="text"
-              id="ubicacion"
-              name="ubicacion"
-              value={formData.ubicacion}
-              onChange={handleInputChange}
-              placeholder="Ej: Segundo piso, pasillo principal"
-              disabled={cargando}
-            />
+          <div className="form-group-row" style={{ display: 'flex', gap: '10px' }}>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label htmlFor="latitud">Latitud *</label>
+              <input
+                type="number"
+                step="0.0000001"
+                id="latitud"
+                name="latitud"
+                value={formData.latitud}
+                onChange={handleInputChange}
+                disabled={cargando}
+              />
+            </div>
+
+            <div className="form-group" style={{ flex: 1 }}>
+              <label htmlFor="longitud">Longitud *</label>
+              <input
+                type="number"
+                step="0.0000001"
+                id="longitud"
+                name="longitud"
+                value={formData.longitud}
+                onChange={handleInputChange}
+                disabled={cargando}
+              />
+            </div>
           </div>
 
           <div className="form-group">
-            <label htmlFor="zona">Zona Asignada *</label>
+            <label htmlFor="idZona">Zona Asignada *</label>
             <select
-              id="zona"
-              name="zona"
-              value={formData.zona}
+              id="idZona"
+              name="idZona"
+              value={formData.idZona}
               onChange={handleInputChange}
               disabled={cargando}
             >
-              {ZONAS.map(zona => (
-                <option key={zona.id} value={zona.id}>
+              {ZONAS.map((zona, index) => (
+                <option key={zona.id} value={index + 1}>
                   {zona.nombre}
                 </option>
               ))}
@@ -240,39 +232,32 @@ const CamerasPanel = () => {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Ubicación</th>
+                  <th>Coordenadas</th>
                   <th>Zona</th>
                   <th>Estado</th>
-                  <th>Fecha de Creación</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {camaras.map((camera) => (
-                  <tr key={camera.idCamera || Math.random()}>
+                {camaras.map((camera, index) => (
+                  <tr key={camera.idCamara || `cam-${index}`}>
                     <td className="td-nombre">
                       <strong>{camera.nombre}</strong>
                     </td>
-                    <td>{camera.ubicacion}</td>
+                    <td style={{ fontSize: '0.85rem' }}>{camera.latitud}, {camera.longitud}</td>
                     <td>
                       <span className="zona-badge">
-                        {getNombreZona(camera.zona)}
+                        {camera.nombreZona || getNombreZona(camera.idZona)}
                       </span>
                     </td>
                     <td>
-                      <span className={`estado-badge ${camera.estado || 'activa'}`}>
+                      <span className={`estado-badge ${camera.estado?.toLowerCase() || 'activa'}`}>
                         {camera.estado ? camera.estado.charAt(0).toUpperCase() + camera.estado.slice(1) : 'Activa'}
                       </span>
                     </td>
-                    <td className="td-fecha">
-                      {camera.fechaCreacion 
-                        ? new Date(camera.fechaCreacion).toLocaleDateString('es-EC')
-                        : '—'
-                      }
-                    </td>
                     <td className="td-acciones">
                       <button
-                        onClick={() => handleEliminar(camera.idCamera)}
+                        onClick={() => handleEliminar(camera.idCamara)}
                         className="btn-icon btn-delete"
                         title="Eliminar cámara"
                         disabled={cargando}
@@ -288,41 +273,7 @@ const CamerasPanel = () => {
         )}
       </div>
 
-      {/* INFO: Documentación de API */}
-      <div className="api-docs-hint">
-        <details>
-          <summary>📋 Ver documentación de API esperada para el backend</summary>
-          <div className="api-docs">
-            <h3>Endpoints requeridos:</h3>
-            <pre>{`GET /api/cameras
-  Retorna: Camera[]
-
-POST /api/cameras
-  Body: { nombre: string, ubicacion: string, zona: string }
-  Retorna: Camera
-
-DELETE /api/cameras/{id}
-  Retorna: { success: boolean }
-
-PUT /api/cameras/{id}
-  Body: { nombre: string, ubicacion: string, zona: string }
-  Retorna: Camera
-
-GET /api/cameras/zona/{zonaId}
-  Retorna: Camera[]
-
-Modelo Camera:
-{
-  idCamera: number,
-  nombre: string,
-  ubicacion: string,
-  zona: string,
-  estado: 'activa' | 'inactiva' | 'mantenimiento',
-  fechaCreacion: string (ISO)
-}`}</pre>
-          </div>
-        </details>
-      </div>
+      {/* INFO: Documentación de API eliminada ya que el backend real existe */}
     </div>
   );
 };

@@ -1,20 +1,23 @@
 export interface Camera {
-  idCamera?: number;
+  idCamara?: number;
   nombre: string;
-  ubicacion: string;
-  zona: string;
-  estado?: 'activa' | 'inactiva' | 'mantenimiento';
-  fechaCreacion?: string;
+  latitud: number;
+  longitud: number;
+  urlStream?: string;
+  estado?: string;
+  idZona?: number;
+  nombreZona?: string;
 }
 
 export interface CameraFormData {
   nombre: string;
-  ubicacion: string;
-  zona: string;
+  latitud: number;
+  longitud: number;
+  idZona: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_CAMERAS_URL ?? 'http://localhost:5010';
-const API_CAMERAS_ENDPOINT = `${API_BASE_URL}/api/cameras`;
+const API_BASE_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+const API_CAMERAS_ENDPOINT = `${API_BASE_URL}/api/camaras`;
 
 const getAuthHeaders = () => {
   const token = localStorage.getItem('token');
