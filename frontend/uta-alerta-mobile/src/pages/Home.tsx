@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   IonPage, IonContent, IonSelect, IonSelectOption,
-  IonText, IonIcon, IonInput, IonButton
+  IonText, IonIcon, IonInput, IonButton,
+  IonModal, IonHeader, IonToolbar, IonTitle, IonButtons,
+  IonList, IonItem, IonLabel
 } from '@ionic/react';
-import { wifiOutline } from 'ionicons/icons';
+import { wifiOutline, personCircleOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import './Home.css';
 import { crearIncidente } from '../services/incidentService';
@@ -15,6 +17,7 @@ import {
   obtenerGrupoDetalle,
   Grupo,
 } from '../services/groupService';
+import { obtenerDetallesUsuario } from '../services/userService';
 
 // Tipo para los datos del usuario guardados en localStorage
 interface UsuarioData {
@@ -40,6 +43,8 @@ const Home: React.FC = () => {
   const [descripcionGrupo, setDescripcionGrupo] = useState<string>('');
   const [creandoGrupo, setCreandoGrupo] = useState<boolean>(false);
   const [accionGrupos, setAccionGrupos] = useState<string | null>(null);
+  const [grupoSeleccionado, setGrupoSeleccionado] = useState<Grupo | null>(null);
+  const [detallesUsuarios, setDetallesUsuarios] = useState<Record<number, { nombre: string; facultad: string }>>({});
 
   useEffect(() => {
     const raw = localStorage.getItem('usuario');
@@ -69,6 +74,29 @@ const Home: React.FC = () => {
 
     cargarGrupos();
   }, [usuario]);
+
+  // Cargar detalles de los usuarios al abrir un grupo
+  useEffect(() => {
+    if (grupoSeleccionado?.miembros) {
+      const cargarDetalles = async () => {
+        const nuevosDetalles = { ...detallesUsuarios };
+        let huboCambios = false;
+
+        for (const miembro of grupoSeleccionado?.miembros || []) {
+          if (!nuevosDetalles[miembro.idUsuario]) {
+            const info = await obtenerDetallesUsuario(miembro.idUsuario);
+            nuevosDetalles[miembro.idUsuario] = info;
+            huboCambios = true;
+          }
+        }
+
+        if (huboCambios) {
+          setDetallesUsuarios(nuevosDetalles);
+        }
+      };
+      cargarDetalles();
+    }
+  }, [grupoSeleccionado]);
 
   // ── Selector de motivo ───────────────────────────────────────────
   const [motivo, setMotivo] = useState<string>('Alerta de seguridad');
@@ -437,15 +465,9 @@ const Home: React.FC = () => {
                         <span>{grupo.miembros?.length ?? 0} miembro{(grupo.miembros?.length ?? 0) === 1 ? '' : 's'}</span>
                       </div>
                       <div className="grupo-members">
-                        {!grupo.miembros || grupo.miembros.length === 0 ? (
-                          <span className="grupo-member-empty">Sin miembros aún</span>
-                        ) : (
-                          grupo.miembros.map((miembro) => (
-                            <span key={miembro.idUsuarioGrupo} className="grupo-member-pill">
-                              Usuario {miembro.idUsuario}
-                            </span>
-                          ))
-                        )}
+                        <IonButton fill="clear" size="small" onClick={() => setGrupoSeleccionado(grupo)}>
+                          Ver lista de miembros
+                        </IonButton>
                       </div>
                     </div>
                   );
@@ -454,6 +476,36 @@ const Home: React.FC = () => {
             </div>
           </div>
 
+          {/* ── MODAL: LISTADO DE MIEMBROS ── */}
+          <IonModal isOpen={!!grupoSeleccionado} onDidDismiss={() => setGrupoSeleccionado(null)}>
+            <IonHeader>
+              <IonToolbar>
+                <IonTitle>Miembros del Grupo</IonTitle>
+                <IonButtons slot="end">
+                  <IonButton onClick={() => setGrupoSeleccionado(null)}>Cerrar</IonButton>
+                </IonButtons>
+              </IonToolbar>
+            </IonHeader>
+            <IonContent className="ion-padding">
+              <h2 style={{ marginTop: 0 }}>{grupoSeleccionado?.nombre}</h2>
+              <p style={{ color: '#666', marginBottom: 20 }}>{grupoSeleccionado?.descripcion}</p>
+
+              <IonList>
+                {(!grupoSeleccionado?.miembros || grupoSeleccionado.miembros.length === 0) && (
+                  <IonItem><IonLabel color="medium">No hay miembros en este grupo.</IonLabel></IonItem>
+                )}
+                {grupoSeleccionado?.miembros?.map((m) => (
+                  <IonItem key={m.idUsuarioGrupo}>
+                    <IonIcon icon={personCircleOutline} slot="start" size="large" color="medium" />
+                    <IonLabel>
+                      <h2>{detallesUsuarios[m.idUsuario]?.nombre || `Cargando... (ID: ${m.idUsuario})`}</h2>
+                      <p>{detallesUsuarios[m.idUsuario]?.facultad || 'Obteniendo carrera...'}</p>
+                    </IonLabel>
+                  </IonItem>
+                ))}
+              </IonList>
+            </IonContent>
+          </IonModal>
         </div>
       </IonContent>
     </IonPage>
