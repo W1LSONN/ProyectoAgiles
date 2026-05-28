@@ -21,9 +21,7 @@ const getAuthHeaders = () => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 };
 
@@ -39,6 +37,14 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
 
 export const getCameras = async (): Promise<Camera[]> => {
   const response = await fetch(API_CAMERAS_ENDPOINT, {
+    method: 'GET',
+    headers: getAuthHeaders(),
+  });
+  return await handleResponse<Camera[]>(response);
+};
+
+export const getCamerasByZona = async (zonaId: string): Promise<Camera[]> => {
+  const response = await fetch(`${API_CAMERAS_ENDPOINT}/zona/${encodeURIComponent(zonaId)}`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
@@ -70,12 +76,4 @@ export const updateCamera = async (id: number, data: CameraFormData): Promise<Ca
     body: JSON.stringify(data),
   });
   return await handleResponse<Camera>(response);
-};
-
-export const getCamerasByZona = async (zonaId: string): Promise<Camera[]> => {
-  const response = await fetch(`${API_CAMERAS_ENDPOINT}/zona/${encodeURIComponent(zonaId)}`, {
-    method: 'GET',
-    headers: getAuthHeaders(),
-  });
-  return await handleResponse<Camera[]>(response);
 };

@@ -1,5 +1,5 @@
-// URL del IncidentService desde las variables de entorno
-const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+
+const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://192.168.100.83:5008';
 
 export interface CrearIncidentePayload {
     idUsuario: number;
