@@ -12,6 +12,10 @@ import {
   IonButtons,
   IonText,
   IonSpinner,
+  IonSegment,
+  IonSegmentButton,
+  IonLabel,
+  IonTextarea,
 } from '@ionic/react';
 import { menuOutline, personCircleOutline } from 'ionicons/icons';
 import './Guardia.css';
@@ -29,6 +33,7 @@ interface NotificacionGuardia {
   mensaje?: string;
   mapaUrl?: string;
   estado?: string;
+  guardiaAsignado?: string;
 }
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
@@ -54,7 +59,8 @@ const mapIncidente = (incidente: any): NotificacionGuardia => {
     fechaReporte: incidente.fechaReporte ?? incidente.FechaReporte ?? new Date().toISOString(),
     mensaje: incidente.mensaje ?? incidente.Mensaje ?? incidente.descripcion ?? incidente.Descripcion,
     mapaUrl: incidente.mapaUrl ?? incidente.MapaUrl,
-    estado: incidente.estado ?? incidente.Estado ?? 'Activo'
+    estado: incidente.estado ?? incidente.Estado ?? 'Activo',
+    guardiaAsignado: incidente.guardiaAsignado ?? incidente.GuardiaAsignado,
   };
 };
 
@@ -64,6 +70,11 @@ const Guardia: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<NotificacionGuardia | null>(null);
   const [asignando, setAsignando] = useState(false);
+  const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
+  const [observacionesCierre, setObservacionesCierre] = useState('');
+
+  const usuarioRaw = localStorage.getItem('usuario');
+  const usuarioObj = usuarioRaw ? JSON.parse(usuarioRaw) : null;
 
   useEffect(() => {
     const usuarioRaw = localStorage.getItem('usuario');
@@ -95,24 +106,29 @@ const Guardia: React.FC = () => {
 
     const cargarIncidentesIniciales = async () => {
       try {
-        const response = await fetch(`${INCIDENT_URL}/api/incidents?estado=Activo`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const headers = { Authorization: `Bearer ${token}` };
+        const [resActivos, resAsumidos] = await Promise.all([
+          fetch(`${INCIDENT_URL}/api/incidents?estado=Activo`, { headers }),
+          fetch(`${INCIDENT_URL}/api/incidents?estado=Asumido`, { headers }),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        if (!resActivos.ok || !resAsumidos.ok) {
+          throw new Error(`Error cargando incidentes`);
         }
 
-        const data: any[] = await response.json();
-        const incidentesActivos = data
+        const dataActivos: any[] = await resActivos.json();
+        const dataAsumidos: any[] = await resAsumidos.json();
+
+        const incidentes = [...dataActivos, ...dataAsumidos]
           .map(mapIncidente)
-          .filter((incidente) => (incidente.estado ?? '').toLowerCase() === 'activo');
+          .filter((incidente) => {
+             const est = (incidente.estado ?? '').toLowerCase();
+             return est === 'activo' || est === 'asumido';
+          });
 
         if (!cancelado) {
           setNotificaciones((s) => {
-            const combinadas = [...incidentesActivos, ...s];
+            const combinadas = [...incidentes, ...s];
             return combinadas.reduce<NotificacionGuardia[]>((acumuladas, incidente) => {
               const existente = acumuladas.findIndex((item) => item.idIncidente === incidente.idIncidente);
 
@@ -123,11 +139,11 @@ const Guardia: React.FC = () => {
 
               acumuladas.push(incidente);
               return acumuladas;
-            }, []).slice(0, 50);
+            }, []).slice(0, 100);
           });
         }
       } catch (error) {
-        console.warn('No se pudieron cargar los incidentes activos al iniciar.', error);
+        console.warn('No se pudieron cargar los incidentes iniciales.', error);
       }
     };
 
@@ -159,17 +175,18 @@ const Guardia: React.FC = () => {
 
   const abrirDetalle = (n: NotificacionGuardia) => setSeleccionada(n);
 
-  const cerrarDetalle = () => setSeleccionada(null);
+  const cerrarDetalle = () => {
+    setSeleccionada(null);
+    setObservacionesCierre('');
+  };
 
   const asumirIncidente = async () => {
     if (!seleccionada) return;
     const token = localStorage.getItem('token');
-    const usuarioRaw = localStorage.getItem('usuario');
-    if (!token || !usuarioRaw) {
+    if (!token || !usuarioObj) {
       setError('Usuario no autenticado');
       return;
     }
-    const usuario = JSON.parse(usuarioRaw);
 
     setAsignando(true);
     try {
@@ -179,7 +196,7 @@ const Guardia: React.FC = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ guardiaAsignado: usuario.nombre }),
+        body: JSON.stringify({ guardiaAsignado: usuarioObj.nombre }),
       });
 
       if (!res.ok) {
@@ -187,8 +204,11 @@ const Guardia: React.FC = () => {
         throw new Error(body.mensaje || `Error ${res.status}`);
       }
 
-      // marcar como asignado en la lista
-      setNotificaciones((s) => s.filter((x) => x.idIncidente !== seleccionada.idIncidente));
+      setNotificaciones((s) => s.map((x) => 
+        x.idIncidente === seleccionada.idIncidente 
+          ? { ...x, estado: 'Asumido', guardiaAsignado: usuarioObj.nombre } 
+          : x
+      ));
       cerrarDetalle();
     } catch (error) {
       const e = error as Error;
@@ -198,6 +218,50 @@ const Guardia: React.FC = () => {
       setAsignando(false);
     }
   };
+
+  const cerrarIncidente = async () => {
+    if (!seleccionada) return;
+    if (!observacionesCierre.trim()) {
+      setError('Las observaciones son obligatorias.');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    setAsignando(true);
+    try {
+      const res = await fetch(`${INCIDENT_URL}/api/incidents/${seleccionada.idIncidente}/cerrar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ observaciones: observacionesCierre }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.mensaje || `Error ${res.status}`);
+      }
+
+      setNotificaciones((s) => s.filter((x) => x.idIncidente !== seleccionada.idIncidente));
+      cerrarDetalle();
+    } catch (error) {
+      const e = error as Error;
+      console.error('Error cerrando incidente', e);
+      setError(e?.message || 'Error al cerrar incidente');
+    } finally {
+      setAsignando(false);
+    }
+  };
+
+  const notificacionesFiltradas = notificaciones.filter(n => {
+    if (segment === 'pendientes') {
+      return (n.estado ?? 'Activo') === 'Activo';
+    } else {
+      return n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
+    }
+  });
 
   return (
     <IonPage>
@@ -228,13 +292,24 @@ const Guardia: React.FC = () => {
               )}
             </div>
 
+            <div style={{ padding: '0 16px', marginBottom: '16px' }}>
+              <IonSegment value={segment} onIonChange={(e) => setSegment(e.detail.value as any)}>
+                <IonSegmentButton value="pendientes">
+                  <IonLabel>Pendientes</IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="mis-casos">
+                  <IonLabel>Mis Casos</IonLabel>
+                </IonSegmentButton>
+              </IonSegment>
+            </div>
+
             <div className="guardia-lista">
-              {notificaciones.length === 0 ? (
+              {notificacionesFiltradas.length === 0 ? (
                 <div className="guardia-empty">
-                  <IonText>No hay notificaciones nuevas.</IonText>
+                  <IonText>No hay notificaciones para mostrar.</IonText>
                 </div>
               ) : (
-                notificaciones.map((n) => (
+                notificacionesFiltradas.map((n) => (
                   <article key={n.idIncidente} className="guardia-card" onClick={() => abrirDetalle(n)}>
                     <div className="guardia-avatar">
                       <IonIcon icon={personCircleOutline} />
@@ -292,11 +367,32 @@ const Guardia: React.FC = () => {
                   <div className="guardia-mapa placeholder">Mapa no disponible</div>
                 )}
 
-                <div className="modal-actions">
-                  <IonButton color="success" onClick={asumirIncidente} disabled={asignando}>
-                    {asignando ? <IonSpinner /> : 'Asumir'}
-                  </IonButton>
-                  <IonButton color="danger" onClick={cerrarDetalle}>Cerrar</IonButton>
+                <div className="modal-actions" style={{ marginTop: '20px' }}>
+                  {seleccionada.estado === 'Activo' && (
+                    <>
+                      <IonButton color="success" onClick={asumirIncidente} disabled={asignando}>
+                        {asignando ? <IonSpinner /> : 'Asumir'}
+                      </IonButton>
+                      <IonButton color="light" onClick={cerrarDetalle}>Cerrar</IonButton>
+                    </>
+                  )}
+                  {seleccionada.estado === 'Asumido' && (
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      <IonTextarea
+                        placeholder="Escribe las observaciones de cierre (Obligatorio)"
+                        value={observacionesCierre}
+                        onIonChange={e => setObservacionesCierre(e.detail.value!)}
+                        autoGrow
+                        style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '8px', '--padding-start': '8px' }}
+                      />
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <IonButton color="light" onClick={cerrarDetalle}>Cancelar</IonButton>
+                        <IonButton color="danger" onClick={cerrarIncidente} disabled={asignando || !observacionesCierre.trim()}>
+                          {asignando ? <IonSpinner /> : 'Cerrar Caso'}
+                        </IonButton>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : null}
