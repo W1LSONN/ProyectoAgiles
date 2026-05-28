@@ -227,7 +227,7 @@ const CamerasPanel = () => {
         )}
 
         {camaras.length > 0 && (
-          <div className="tabla-scroll">
+          <div className="tabla-scroll" style={{ maxHeight: '400px', overflowY: 'auto' }}>
             <table className="cameras-tabla">
               <thead>
                 <tr>

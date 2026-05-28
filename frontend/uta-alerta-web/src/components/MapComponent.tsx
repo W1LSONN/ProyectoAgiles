@@ -102,6 +102,18 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
   return (
     <div className="map-component">
+      {/* Control flotante para la capa de cámaras */}
+      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333' }}>
+          <input 
+            type="checkbox" 
+            checked={mostrarCamaras} 
+            onChange={(e) => setMostrarCamaras(e.target.checked)} 
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+          />
+          📹 Mostrar capa de cámaras
+        </label>
+      </div>
       <div className="map-container">
         <MapContainer
           center={[-1.2688, -78.6248] as L.LatLngExpression}
@@ -190,12 +202,25 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
           })}
 
           {/* Marcadores de cámaras (CCTV) */}
-          {mostrarCamaras && Array.isArray(camaras) && camaras.map((camara) => {
-            if (camara.latitud == null || camara.longitud == null) return null;
-            return (
+          {mostrarCamaras && Array.isArray(camaras) && (() => {
+            // Diccionario para contar cuántas cámaras están en las mismas coordenadas
+            const coordCount: Record<string, number> = {};
+            
+            return camaras.map((camara) => {
+              if (camara.latitud == null || camara.longitud == null) return null;
+              
+              const coordKey = `${camara.latitud},${camara.longitud}`;
+              const count = coordCount[coordKey] || 0;
+              coordCount[coordKey] = count + 1;
+
+              // Desplazamiento en diagonal (aprox 4 metros) por cada cámara superpuesta
+              const latOffset = count * 0.00004;
+              const lngOffset = count * 0.00004;
+
+              return (
             <Marker
               key={`camara-${camara.idCamara || Math.random()}`}
-              position={[camara.latitud, camara.longitud] as L.LatLngExpression}
+              position={[camara.latitud + latOffset, camara.longitud + lngOffset] as L.LatLngExpression}
               icon={cctvIcon}
             >
               <Popup>
@@ -204,80 +229,17 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
                   <p style={{ margin: '3px 0', fontSize: '0.9rem' }}><strong>Ubicación:</strong> {Number(camara.latitud).toFixed(5)}, {Number(camara.longitud).toFixed(5)}</p>
                   <p style={{ margin: '3px 0', fontSize: '0.9rem' }}>
                     <strong>Estado:</strong> 
-                    <span style={{ 
-                      color: camara.estado?.toLowerCase() === 'inactiva' ? 'red' : 
-                             camara.estado?.toLowerCase() === 'mantenimiento' ? 'orange' : 'green',
-                      fontWeight: 'bold', marginLeft: '5px'
-                    }}>
-                      {camara.estado ? camara.estado.toUpperCase() : 'ACTIVA'}
+                    <span style={{ color: camara.estado === 'inactiva' ? 'red' : 'green', fontWeight: 'bold', marginLeft: '5px' }}>
+                      {camara.estado ? camara.estado.charAt(0).toUpperCase() + camara.estado.slice(1) : 'Activa'}
                     </span>
                   </p>
                 </div>
               </Popup>
             </Marker>
-          )})}
+            );
+            });
+          })()}
         </MapContainer>
-      </div>
-
-      {/* Panel de control de zonas */}
-      <div className="map-legend">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <h3 style={{ margin: 0 }}>Zonas de la UTA</h3>
-          
-          {/* Toggle de Cámaras */}
-          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.85rem', background: '#f0f0f0', padding: '4px 8px', borderRadius: '4px' }}>
-            <input 
-              type="checkbox" 
-              checked={mostrarCamaras} 
-              onChange={(e) => setMostrarCamaras(e.target.checked)} 
-              style={{ marginRight: '5px' }}
-            />
-            Ver Cámaras
-          </label>
-        </div>
-        <div className="zonas-list">
-          {ZONAS.map(zona => (
-            <div
-              key={zona.id}
-              className={`zona-item ${zonaActiva === zona.id ? 'active' : ''}`}
-              onClick={() => handleZonaClick(zona)}
-            >
-              <div
-                className="zona-color"
-                style={{ backgroundColor: zona.color }}
-              />
-              <span className="zona-nombre">{zona.nombre}</span>
-              <span className="zona-contador">({getCantidadIncidentes(zona.id)})</span>
-            </div>
-          ))}
-        </div>
-
-        {zonaActiva && (
-          <div className="zona-incidentes">
-            <h4>Incidentes en {ZONAS.find(z => z.id === zonaActiva)?.nombre}</h4>
-            <div className="incidentes-list">
-              {(incidentesPorZona[zonaActiva] || [])
-                .slice(0, mostrarTodos ? undefined : 20)
-                .map(inc => (
-                  <div key={inc.idIncidente} className="incidente-item">
-                    <strong>{inc.tipoIncidente}</strong>
-                    <small>{inc.nombreUsuario} - {new Date(inc.fechaReporte).toLocaleString('es-EC')}</small>
-                  </div>
-                ))}
-              
-              {!mostrarTodos && (incidentesPorZona[zonaActiva] || []).length > 20 && (
-                <button className="btn-ver-mas" onClick={() => setMostrarTodos(true)}>
-                  Ver más ({(incidentesPorZona[zonaActiva] || []).length - 20} ocultos)
-                </button>
-              )}
-              {mostrarTodos && (incidentesPorZona[zonaActiva] || []).length > 20 && (
-                <button className="btn-ver-mas" onClick={() => setMostrarTodos(false)}>
-                  Ver menos
-                </button>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
