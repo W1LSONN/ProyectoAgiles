@@ -132,7 +132,7 @@ public class IncidentsController : ControllerBase
         {
             idIncidente   = incidente.IdIncidente,
             idUsuario     = incidente.IdUsuario,
-            zona          = incidente.Zona.Nombre,
+            zona          = incidente.Zona?.Nombre ?? "Desconocida",
             tipoIncidente = incidente.TipoIncidente,
             descripcion   = incidente.Descripcion,
             estado        = incidente.Estado,
@@ -144,16 +144,22 @@ public class IncidentsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> ListarIncidentes()
+    public async Task<IActionResult> ListarIncidentes([FromQuery] string? estado)
     {
-        var incidentes = await _context.Incidentes
-            .Include(i => i.Zona)
+        var query = _context.Incidentes.Include(i => i.Zona).AsQueryable();
+
+        if (!string.IsNullOrEmpty(estado))
+        {
+            query = query.Where(i => i.Estado == estado);
+        }
+
+        var incidentes = await query
             .OrderByDescending(i => i.FechaReporte)
             .Select(i => new
             {
                 idIncidente   = i.IdIncidente,
                 idUsuario     = i.IdUsuario,
-                zona          = i.Zona.Nombre,
+                zona          = i.Zona != null ? i.Zona.Nombre : "Desconocida",
                 tipoIncidente = i.TipoIncidente,
                 estado        = i.Estado,
                 guardiaAsignado = i.GuardiaAsignado,

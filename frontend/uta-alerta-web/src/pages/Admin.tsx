@@ -15,6 +15,7 @@ const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
   const { alertas: alertasWS, error } = useSignalR('Admins');
+  const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
@@ -49,7 +50,11 @@ const Admin = () => {
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
-    cargarIncidentes().catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
+    cargarIncidentes().catch((e) => {
+      // Mostrar banner de error y escribir en consola
+      console.warn('IncidentService no disponible (puerto 5008)', e);
+      setIncidentesError('IncidentService no disponible (puerto 5008)');
+    });
   }, []);
 
   const asumirIncidente = async (incidente: AlertaIncidente) => {
@@ -249,7 +254,7 @@ const Admin = () => {
         </div>
 
 
-        {error && <div className="error-banner">{error}</div>}
+        {(error || incidentesError) && <div className="error-banner">{error || incidentesError}</div>}
 
         {/* CONTENIDO */}
         <div className="content-card">
