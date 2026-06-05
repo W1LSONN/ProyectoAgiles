@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
-import MapComponent from '../components/MapComponent';
-import CamerasPanel from '../components/CamerasPanel';
-import CustomersPanel from '../components/CustomersPanel';
+const DashboardPanel = lazy(() => import('../components/DashboardPanel'));
+const MapComponent = lazy(() => import('../components/MapComponent'));
+const CamerasPanel = lazy(() => import('../components/CamerasPanel'));
+const CustomersPanel = lazy(() => import('../components/CustomersPanel'));
 import type { AlertaIncidente } from '../services/signalrService';
 import type { Zona } from '../services/zonasService';
 import './Admin.css';
@@ -18,9 +19,8 @@ const Admin = () => {
   const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
+  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers'>('dashboard');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
-  const [asumiendoId, setAsumiendoId] = useState<number | null>(null);
 
   const cargarIncidentes = async () => {
     const response = await fetch(`${INCIDENTS_URL}/api/incidents`);
@@ -56,48 +56,6 @@ const Admin = () => {
       setIncidentesError('IncidentService no disponible (puerto 5008)');
     });
   }, []);
-
-  const asumirIncidente = async (incidente: AlertaIncidente) => {
-    if (asumiendoId === incidente.idIncidente || incidente.estado?.toLowerCase() === 'asumido') {
-      return;
-    }
-
-    setAsumiendoId(incidente.idIncidente);
-
-    try {
-      const response = await fetch(`${INCIDENTS_URL}/api/incidents/${incidente.idIncidente}/asignar`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${usuario.token}`,
-        },
-        body: JSON.stringify({
-          guardiaAsignado: usuario.nombre || 'Guardia asignado'
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.mensaje ?? `Error ${response.status} al asumir el incidente`);
-      }
-
-      const data = await response.json();
-      setIncidentesDB((prev) => prev.map((item) => (
-        item.idIncidente === incidente.idIncidente
-          ? {
-              ...item,
-              estado: data.estado ?? 'Asumido',
-              guardiaAsignado: data.guardiaAsignado ?? usuario.nombre
-            }
-          : item
-      )));
-    } catch (err) {
-      console.error(err);
-      await cargarIncidentes();
-    } finally {
-      setAsumiendoId(null);
-    }
-  };
 
   // Unir datos de BD + nuevas alertas SignalR (las nuevas van primero)
   const alertas = [
@@ -162,6 +120,16 @@ const Admin = () => {
 
         <nav className="sidebar-nav">
           <button
+            className={`nav-item ${seccion === 'dashboard' ? 'activo' : ''}`}
+            onClick={() => setSeccion('dashboard')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+            </span>
+            Dashboard
+          </button>
+
+          <button
             className={`nav-item ${seccion === 'mapa' ? 'activo' : ''}`}
             onClick={() => setSeccion('mapa')}
           >
@@ -223,6 +191,7 @@ const Admin = () => {
         {/* TOPBAR */}
         <div className="admin-topbar">
           <h1 className="admin-titulo">
+            {seccion === 'dashboard' && 'Dashboard y Estadísticas'}
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
             {seccion === 'camaras' && (
@@ -259,6 +228,12 @@ const Admin = () => {
         {/* CONTENIDO */}
         <div className="content-card">
 
+          {seccion === 'dashboard' && (
+            <Suspense fallback={<div className="loading-panel">Cargando panel...</div>}>
+              <DashboardPanel />
+            </Suspense>
+          )}
+
           {seccion === 'notificaciones' && (
             <>
               <div className="tabla-scroll">
@@ -273,13 +248,12 @@ const Admin = () => {
                       <th>Fecha y hora</th>
                       <th>Estado</th>
                       <th>Guardia asignado</th>
-                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alertasPagina.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="tabla-vacia">
+                        <td colSpan={8} className="tabla-vacia">
                           Sin incidentes registrados. Esperando alertas en tiempo real...
                         </td>
                       </tr>
@@ -298,15 +272,6 @@ const Admin = () => {
                             <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
                             <td><span className={asumido ? 'badge-asumido' : 'badge-activo'}>{estado}</span></td>
                             <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
-                            <td className="td-acciones">
-                              <button
-                                className="btn-asumir"
-                                onClick={() => asumirIncidente(a)}
-                                disabled={asumido || asumiendoId === a.idIncidente}
-                              >
-                                {asumiendoId === a.idIncidente ? 'Asumiendo...' : asumido ? 'Asumido' : 'Asumir'}
-                              </button>
-                            </td>
                           </tr>
                         );
                       })
@@ -337,18 +302,24 @@ const Admin = () => {
           )}
 
           {seccion === 'mapa' && (
-            <MapComponent 
-              incidentes={alertas}
-              onZonaSeleccionada={setZonaSeleccionada}
-            />
+            <Suspense fallback={<div className="loading-panel">Cargando mapa...</div>}>
+              <MapComponent 
+                incidentes={alertas}
+                onZonaSeleccionada={setZonaSeleccionada}
+              />
+            </Suspense>
           )}
 
           {seccion === 'camaras' && (
-            <CamerasPanel />
+            <Suspense fallback={<div className="loading-panel">Cargando cámaras...</div>}>
+              <CamerasPanel />
+            </Suspense>
           )}
 
           {seccion === 'customers' && (
-            <CustomersPanel />
+            <Suspense fallback={<div className="loading-panel">Cargando clientes...</div>}>
+              <CustomersPanel />
+            </Suspense>
           )}
 
         </div>

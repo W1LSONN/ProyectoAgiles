@@ -37,7 +37,6 @@ interface MapComponentProps {
 
 const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
-  const [mostrarTodos, setMostrarTodos] = useState(false);
   
   // Estado para T-11: Cámaras
   const [camaras, setCamaras] = useState<Camera[]>([]);
@@ -92,7 +91,6 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
   const handleZonaClick = (zona: Zona) => {
     setZonaActiva(zonaActiva === zona.id ? null : zona.id);
-    setMostrarTodos(false);
     onZonaSeleccionada?.(zona);
   };
 
