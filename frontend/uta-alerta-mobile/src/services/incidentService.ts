@@ -22,6 +22,42 @@ export interface IncidenteCreado {
     longitud?: number;
 }
 
+export interface IncidenteResumen {
+    idIncidente: number;
+    idUsuario: number;
+    idZona: number;
+    tipoIncidente: string;
+    estado: string;
+    fechaReporte: string;
+    mensaje: string;
+    descripcion?: string;
+    latitud?: number;
+    longitud?: number;
+}
+
+/**
+ * Llama a GET /api/incidents/usuario/{id} para obtener el historial del usuario.
+ * Lanza un Error si la respuesta no es 2xx.
+ */
+export async function obtenerIncidentesPorUsuario(
+    idUsuario: number,
+    token: string
+): Promise<IncidenteResumen[]> {
+    const response = await fetch(`${INCIDENT_URL}/api/incidents/usuario/${idUsuario}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.mensaje ?? `Error ${response.status} al obtener el historial`);
+    }
+
+    return response.json();
+}
+
 /**
  * Llama a POST /api/incidents para registrar un nuevo incidente.
  * Lanza un Error si la respuesta no es 2xx.

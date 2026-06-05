@@ -190,8 +190,17 @@ const Guardia: React.FC = () => {
   const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
   const [observacionesCierre, setObservacionesCierre] = useState('');
 
-  const usuarioRaw = localStorage.getItem('usuario');
-  const usuarioObj = usuarioRaw ? JSON.parse(usuarioRaw) : null;
+  // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
+  const getUsuarioSeguro = () => {
+    try {
+      const raw = localStorage.getItem('usuario');
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const usuarioObj = getUsuarioSeguro();
   const [disponible, setDisponible] = useState<boolean>(usuarioObj?.disponible ?? true);
   const [actualizandoDisponibilidad, setActualizandoDisponibilidad] = useState(false);
 
@@ -203,7 +212,13 @@ const Guardia: React.FC = () => {
       return;
     }
 
-    const usuario = JSON.parse(usuarioRaw);
+    let usuario;
+    try {
+      usuario = JSON.parse(usuarioRaw);
+    } catch (e) {
+      setError('Error en los datos de sesión. Intenta de nuevo.');
+      return;
+    }
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(SIGNALR_URL, {

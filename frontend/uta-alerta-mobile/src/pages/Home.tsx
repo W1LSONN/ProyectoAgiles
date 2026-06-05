@@ -52,7 +52,12 @@ const Home: React.FC = () => {
       history.replace('/login');
       return;
     }
-    setUsuario(JSON.parse(raw));
+    try {
+      setUsuario(JSON.parse(raw));
+    } catch (error) {
+      console.error('Error parseando sesión:', error);
+      history.replace('/login');
+    }
   }, [history]);
 
   useEffect(() => {
@@ -342,6 +347,16 @@ const Home: React.FC = () => {
             </div>
           </div>
           <div className="header-separador" />
+          <div className="home-header-actions">
+            <IonButton
+              fill="outline"
+              size="small"
+              onClick={() => history.push('/historial')}
+              className="btn-historial"
+            >
+              Ver historial
+            </IonButton>
+          </div>
         </div>
 
         {/* ── CUERPO ── */}

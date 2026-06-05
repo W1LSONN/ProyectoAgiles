@@ -71,6 +71,19 @@
     margin: 0 -20px;
 }
 
+.home-header-actions {
+    padding: 14px 20px;
+    display: flex;
+    justify-content: flex-end;
+    background: #ffffff;
+}
+
+.btn-historial {
+    font-size: 0.92rem;
+    color: #222222;
+    border-color: #d0d0d0;
+}
+
 /* ── CUERPO ── */
 .home-body {
     display: flex;
