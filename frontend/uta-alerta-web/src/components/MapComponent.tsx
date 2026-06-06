@@ -1,11 +1,20 @@
-import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, Marker } from 'react-leaflet';
+import { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, Polygon, Popup, Marker, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
+import 'leaflet.markercluster';
+import * as signalR from '@microsoft/signalr';
 import { ZONAS, getCentroPorZona, type Zona } from '../services/zonasService';
 import type { AlertaIncidente } from '../services/signalrService';
 import { type Camera, getCameras } from '../services/camerasService';
 import './MapComponent.css';
+
+// URL del Hub de SignalR (debe coincidir con el backend)
+const SIGNALR_URL = import.meta.env.VITE_NOTIFICATION_URL
+  ? `${import.meta.env.VITE_NOTIFICATION_URL}/hubs/incident`
+  : 'http://localhost:5009/hubs/incident';
 
 // Icono rojo personalizado para incidentes
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -30,10 +39,80 @@ const cctvIcon = L.divIcon({
   popupAnchor: [0, -16],
 });
 
+// Icono personalizado para guardias
+const guardIcon = L.divIcon({
+  html: '<div style="font-size: 20px; background: #2980b9; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">🛡️</div>',
+  className: 'guard-marker',
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
+});
+
+// Tipos para la ubicación de los guardias
+interface GuardiaLocation {
+  id: string;
+  nombre: string;
+  lat: number;
+  lon: number;
+}
+
 interface MapComponentProps {
   incidentes: AlertaIncidente[];
   onZonaSeleccionada?: (zona: Zona) => void;
 }
+
+// Componente para la capa de guardias con clustering
+const GuardiasLayer = ({ guardias }: { guardias: Record<string, GuardiaLocation> }) => {
+  const map = useMap();
+  // Se usa L.MarkerClusterGroup para el ref, ya que la librería expose este tipo correcto.
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
+
+  useEffect(() => {
+    // La librería leaflet.markercluster extiende el objeto `L` globalmente en lugar de exportar
+    // el módulo, por lo que el tipo MarkerClusterGroup se encuentra disponible.
+    clusterRef.current = L.markerClusterGroup({
+      // Opciones de personalización del cluster
+      iconCreateFunction: function (cluster) {
+        const count = cluster.getChildCount();
+        let className = 'marker-cluster-';
+        if (count < 10) {
+          className += 'small';
+        } else if (count < 100) {
+          className += 'medium';
+        } else {
+          className += 'large';
+        }
+        return L.divIcon({
+          html: `<div><span>${count}</span></div>`,
+          className: `marker-cluster ${className}`,
+          iconSize: new L.Point(40, 40)
+        });
+      }
+    });
+    map.addLayer(clusterRef.current);
+
+    return () => {
+      if (clusterRef.current) {
+        map.removeLayer(clusterRef.current);
+      }
+    };
+  }, [map]);
+
+  useEffect(() => {
+    if (!clusterRef.current) return;
+
+    clusterRef.current.clearLayers();
+    const markers: L.Marker[] = [];
+    Object.values(guardias).forEach(guardia => {
+      const marker = L.marker([guardia.lat, guardia.lon], { icon: guardIcon })
+        .bindPopup(`<b>Guardia:</b> ${guardia.nombre || guardia.id}`);
+      markers.push(marker);
+    });
+    clusterRef.current.addLayers(markers);
+  }, [guardias]);
+
+  return null;
+};
 
 const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
@@ -41,6 +120,10 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
   // Estado para T-11: Cámaras
   const [camaras, setCamaras] = useState<Camera[]>([]);
   const [mostrarCamaras, setMostrarCamaras] = useState(true);
+
+  // Estado para T-10: Ubicación de guardias
+  const [guardias, setGuardias] = useState<Record<string, GuardiaLocation>>({});
+  const [mostrarGuardias, setMostrarGuardias] = useState(true);
 
   // Cargar cámaras al inicializar
   useEffect(() => {
@@ -53,6 +136,81 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
       }
     };
     fetchCamaras();
+  }, []);
+
+  // --- INICIO: MOCK DATA PARA VISUALIZACIÓN DE GUARDIAS ---
+  // Este useEffect es para desarrollo. Simula la llegada de guardias al mapa.
+  // Se puede eliminar cuando la integración con el backend sea estable.
+  useEffect(() => {
+    const mockGuards: GuardiaLocation[] = [
+      { id: 'g1', nombre: 'Juan Pérez', lat: -1.2675, lon: -78.6250 },
+      { id: 'g2', nombre: 'Ana Gómez', lat: -1.2690, lon: -78.6235 },
+      { id: 'g3', nombre: 'Luis Torres', lat: -1.2680, lon: -78.6240 },
+      // Este guardia está muy cerca del anterior para forzar un cluster
+      { id: 'g4', nombre: 'Maria Cajas', lat: -1.2681, lon: -78.6241 },
+      { id: 'g5', nombre: 'Carlos Rivas', lat: -1.2700, lon: -78.6260 },
+    ];
+
+    // Simula la llegada de guardias uno por uno
+    mockGuards.forEach((guard, index) => {
+      setTimeout(() => {
+        setGuardias(prev => ({
+          ...prev,
+          [guard.id]: guard,
+        }));
+      }, 1000 * (index + 1)); // Llegan cada segundo
+    });
+  }, []);
+  // --- FIN: MOCK DATA ---
+
+  // Conexión a SignalR para ubicación de guardias
+  useEffect(() => {
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl(SIGNALR_URL)
+      .withAutomaticReconnect()
+      .build();
+
+    // El backend enviará un objeto con esta forma: { userId: string, nombre: string, lat: number, lon: number }
+    // El nombre del método 'RecibirActualizacionUbicacion' debe coincidir con el que se defina en el backend (T-8).
+    // El backend puede enviar propiedades en PascalCase (Lat, Lon) o camelCase (lat, lon). Se manejan ambos casos.
+    connection.on('RecibirActualizacionUbicacion', (data: any) => {
+      const userId = data.userId || data.UserId;
+      const nombre = data.nombre || data.Nombre;
+      const lat = data.lat ?? data.Lat ?? data.latitud ?? data.Latitud;
+      const lon = data.lon ?? data.Lon ?? data.longitud ?? data.Longitud;
+
+      // Validar que los datos recibidos son correctos
+      if (data && typeof userId === 'string' && typeof lat === 'number' && typeof lon === 'number') {
+        setGuardias(prev => ({
+          ...prev,
+          [userId]: {
+            id: userId,
+            nombre: nombre || `Guardia ${userId}`,
+            lat: lat,
+            lon: lon,
+          },
+        }));
+      }
+    });
+
+    const startConnection = async () => {
+      try {
+        await connection.start();
+        console.log('SignalR conectado para ubicaciones de guardias.');
+        // El panel de admin se une al grupo "Admins" para recibir notificaciones
+        await connection.invoke('UnirseAlGrupo', 'Admins');
+      } catch (err) {
+        console.error('Error al conectar con SignalR para ubicaciones:', err);
+        // Reintentar conexión tras 5 segundos
+        setTimeout(startConnection, 5000);
+      }
+    };
+
+    startConnection();
+
+    return () => {
+      connection.stop();
+    };
   }, []);
 
   // Ayudante ultra robusto para ubicar la zona correcta sin importar cómo venga de la base de datos
@@ -101,7 +259,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
   return (
     <div className="map-component">
       {/* Control flotante para la capa de cámaras */}
-      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
+      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333' }}>
           <input 
             type="checkbox" 
@@ -109,7 +267,16 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             onChange={(e) => setMostrarCamaras(e.target.checked)} 
             style={{ width: '18px', height: '18px', cursor: 'pointer' }}
           />
-          📹 Mostrar capa de cámaras
+          📹 Mostrar Cámaras
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333' }}>
+          <input
+            type="checkbox"
+            checked={mostrarGuardias}
+            onChange={(e) => setMostrarGuardias(e.target.checked)}
+            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+          />
+          🛡️ Mostrar Guardias ({Object.keys(guardias).length})
         </label>
       </div>
       <div className="map-container">
@@ -123,6 +290,9 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             attribution="&copy; OpenStreetMap contributors"
             maxZoom={19}
           />
+
+          {/* Capa de guardias con clustering */}
+          {mostrarGuardias && <GuardiasLayer guardias={guardias} />}
 
           {/* Polígonos de las zonas */}
           {ZONAS.map(zona => (
