@@ -189,6 +189,7 @@ const Guardia: React.FC = () => {
   const [asignando, setAsignando] = useState(false);
   const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
   const [observacionesCierre, setObservacionesCierre] = useState('');
+  const connectionRef = React.useRef<signalR.HubConnection | null>(null);
 
   // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
   const getUsuarioSeguro = () => {
@@ -226,6 +227,8 @@ const Guardia: React.FC = () => {
       })
       .withAutomaticReconnect()
       .build();
+
+    connectionRef.current = connection;
 
     let cancelado = false;
 
@@ -306,6 +309,68 @@ const Guardia: React.FC = () => {
       connection.stop().catch(() => {});
     };
   }, []);
+
+  // Efecto para enviar la geolocalización del guardia al backend
+  useEffect(() => {
+    let watchId: number | null = null;
+
+    const startWatchingLocation = () => {
+      if (!navigator.geolocation) {
+        setError("Geolocalización no es soportada en este dispositivo.");
+        return;
+      }
+
+      // Inicia el seguimiento de la posición
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const conn = connectionRef.current;
+          const user = getUsuarioSeguro();
+
+          // Si estamos conectados y tenemos un usuario, enviamos la ubicación
+          if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+            const payload = {
+              UserId: String(user.idUsuario),
+              Nombre: user.nombre,
+              Lat: latitude,
+              Lon: longitude,
+            };
+            
+            // Invoca el método del Hub en el backend (T-8)
+            conn.invoke('ActualizarUbicacionGuardia', payload)
+              .catch(err => console.error("Error al enviar ubicación del guardia:", err));
+          }
+        },
+        (error) => {
+          console.error("Error de geolocalización:", error);
+          setError("No se pudo obtener la ubicación. Revisa los permisos de la app.");
+        },
+        {
+          enableHighAccuracy: true, // Máxima precisión
+          timeout: 10000,           // 10 segundos de timeout
+          maximumAge: 0,            // No usar caché de ubicación
+        }
+      );
+    };
+
+    const stopWatchingLocation = () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    };
+
+    if (disponible && conectado) {
+      startWatchingLocation();
+    } else {
+      stopWatchingLocation();
+    }
+
+    // Limpieza al desmontar el componente o cambiar las dependencias
+    return () => {
+      stopWatchingLocation();
+    };
+  }, [disponible, conectado]); // Se activa/desactiva con la disponibilidad y conexión
 
   const abrirDetalle = (n: NotificacionGuardia) => setSeleccionada(n);
 
