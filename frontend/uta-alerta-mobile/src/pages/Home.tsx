@@ -18,6 +18,7 @@ import {
   Grupo,
 } from '../services/groupService';
 import { obtenerDetallesUsuario } from '../services/userService';
+import { Geolocation } from '@capacitor/geolocation';
 
 // Tipo para los datos del usuario guardados en localStorage
 interface UsuarioData {
@@ -203,22 +204,19 @@ const Home: React.FC = () => {
       }
     };
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          ejecutarEnvio(latitude, longitude);
-        },
-        (error) => {
-          console.warn('Error al obtener geolocalización, usando fallback por facultad', error);
-          ejecutarEnvio();
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    } else {
-      console.warn('Geolocalización no soportada en este dispositivo, usando fallback por facultad');
-      ejecutarEnvio();
-    }
+    const obtenerYEnviar = async () => {
+      try {
+        await Geolocation.requestPermissions();
+        const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+        const { latitude, longitude } = position.coords;
+        ejecutarEnvio(latitude, longitude);
+      } catch (error) {
+        console.warn('Error al obtener geolocalización nativa, usando fallback por facultad', error);
+        ejecutarEnvio();
+      }
+    };
+
+    obtenerYEnviar();
   };
 
   const resetear = () => {
