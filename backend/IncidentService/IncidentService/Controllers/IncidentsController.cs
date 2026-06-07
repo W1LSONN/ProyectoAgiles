@@ -212,4 +212,83 @@ public class IncidentsController : ControllerBase
             return StatusCode(500, new { mensaje = "Error al cerrar el incidente", detalle = ex.Message });
         }
     }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo)
+    {
+        // 1. Rango de Fechas (Por defecto: mes)
+        DateTime fechaInicio = DateTime.Today.AddDays(-30);
+        DateTime fechaFin = DateTime.Now;
+        DateTime fechaInicioPrevio = fechaInicio.AddDays(-30);
+
+        if (periodo == "dia")
+        {
+            fechaInicio = DateTime.Today;
+            fechaInicioPrevio = fechaInicio.AddDays(-1);
+        }
+        else if (periodo == "semana")
+        {
+            fechaInicio = DateTime.Today.AddDays(-7);
+            fechaInicioPrevio = fechaInicio.AddDays(-7);
+        }
+
+        // 2. Traer incidentes de la BD (solo los del rango)
+        var incidentesActuales = await _context.Incidentes
+            .Include(i => i.Zona)
+            .Where(i => i.FechaReporte >= fechaInicio && i.FechaReporte <= fechaFin)
+            .ToListAsync();
+
+        var incidentesPrevios = await _context.Incidentes
+            .Where(i => i.FechaReporte >= fechaInicioPrevio && i.FechaReporte < fechaInicio)
+            .ToListAsync();
+
+        // 3. Procesar Globales
+        var totales = new GlobalStatsDto
+        {
+            Total = incidentesActuales.Count,
+            Activos = incidentesActuales.Count(i => i.Estado == "Activo"),
+            Asumidos = incidentesActuales.Count(i => i.Estado == "Asumido"),
+            Cerrados = incidentesActuales.Count(i => i.Estado == "Cerrado"),
+            Prev_total = incidentesPrevios.Count,
+            Prev_activos = incidentesPrevios.Count(i => i.Estado == "Activo")
+        };
+
+        // 4. Procesar Por Zona
+        var porZona = incidentesActuales
+            .Where(i => i.Zona != null)
+            .GroupBy(i => i.Zona.Nombre)
+            .Select(g => new ZonaStatsDto { Nombre = g.Key, Total = g.Count() })
+            .OrderByDescending(z => z.Total)
+            .ToList();
+
+        // 5. Procesar Por Tipo
+        var porTipo = incidentesActuales
+            .GroupBy(i => i.TipoIncidente)
+            .Select(g => new TipoStatsDto { Nombre = g.Key, Valor = g.Count() })
+            .OrderByDescending(t => t.Valor)
+            .ToList();
+
+        // 6. Procesar Por Hora (24 horas)
+        var horasDelDia = Enumerable.Range(0, 24).Select(h => $"{h:D2}:00").ToList();
+        var conteoPorHora = incidentesActuales
+            .GroupBy(i => i.FechaReporte.Hour)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var porHora = horasDelDia.Select((horaStr, index) => new HoraStatsDto
+        {
+            Hora = horaStr,
+            Total = conteoPorHora.ContainsKey(index) ? conteoPorHora[index] : 0
+        }).ToList();
+
+        // 7. Retornar DTO al frontend
+        var response = new StatsResponseDto
+        {
+            Globales = totales,
+            PorZona = porZona,
+            PorTipo = porTipo,
+            PorHora = porHora
+        };
+
+        return Ok(response);
+    }
 }
