@@ -16,6 +16,8 @@ import {
   IonSegmentButton,
   IonLabel,
   IonTextarea,
+  IonSelect,
+  IonSelectOption,
 } from '@ionic/react';
 import { menuOutline, personCircleOutline } from 'ionicons/icons';
 import './Guardia.css';
@@ -38,6 +40,13 @@ interface NotificacionGuardia {
   guardiaAsignado?: string;
   latitud?: number;
   longitud?: number;
+}
+
+interface ZonaDB {
+  idZona: number;
+  nombre: string;
+  descripcion?: string;
+  activa: boolean;
 }
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
@@ -142,7 +151,9 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
     <div 
       ref={mapContainerRef} 
       style={{ 
-        height: '240px', 
+        height: '55vh', 
+        maxHeight: '450px',
+        minHeight: '280px',
         width: '100%', 
         borderRadius: '12px', 
         marginTop: '12px', 
@@ -189,6 +200,8 @@ const Guardia: React.FC = () => {
   const [asignando, setAsignando] = useState(false);
   const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
   const [observacionesCierre, setObservacionesCierre] = useState('');
+  const [zonaFiltro, setZonaFiltro] = useState<string>('todas');
+  const [zonasDB, setZonasDB] = useState<ZonaDB[]>([]);
   const connectionRef = React.useRef<signalR.HubConnection | null>(null);
 
   // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
@@ -308,6 +321,26 @@ const Guardia: React.FC = () => {
       connection.invoke('SalirDelGrupo', 'Guardias').catch(() => {});
       connection.stop().catch(() => {});
     };
+  }, []);
+
+  // Cargar zonas desde la base de datos
+  useEffect(() => {
+    const cargarZonas = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${INCIDENT_URL}/api/zonas?soloActivas=true`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data: ZonaDB[] = await res.json();
+          setZonasDB(data);
+        }
+      } catch (e) {
+        console.warn('No se pudieron cargar las zonas', e);
+      }
+    };
+    cargarZonas();
   }, []);
 
   // Efecto para enviar la geolocalización del guardia al backend
@@ -455,11 +488,16 @@ const Guardia: React.FC = () => {
   };
 
   const notificacionesFiltradas = notificaciones.filter(n => {
-    if (segment === 'pendientes') {
-      return (n.estado ?? 'Activo') === 'Activo';
-    } else {
-      return n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
-    }
+    // Filtro por segmento (pendientes / mis-casos)
+    const cumpleSegmento = segment === 'pendientes'
+      ? (n.estado ?? 'Activo') === 'Activo'
+      : n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
+
+    // Filtro por zona (desde IonSelect)
+    const cumpleZona = zonaFiltro === 'todas'
+      || (n.zona ?? '').toLowerCase().includes(zonaFiltro.toLowerCase());
+
+    return cumpleSegmento && cumpleZona;
   });
 
   const handleToggleDisponibilidad = async (checked: boolean) => {
@@ -543,6 +581,22 @@ const Guardia: React.FC = () => {
                   <IonLabel>Mis Casos</IonLabel>
                 </IonSegmentButton>
               </IonSegment>
+            </div>
+
+            <div className="guardia-zona-filtro">
+              <IonSelect
+                value={zonaFiltro}
+                placeholder="Filtrar por zona"
+                onIonChange={(e) => setZonaFiltro(e.detail.value)}
+                interface="popover"
+              >
+                <IonSelectOption value="todas">Todas las zonas</IonSelectOption>
+                {zonasDB.map((z) => (
+                  <IonSelectOption key={z.idZona} value={z.nombre}>
+                    {z.nombre}
+                  </IonSelectOption>
+                ))}
+              </IonSelect>
             </div>
 
             <div className="guardia-lista">
