@@ -11,6 +11,10 @@ public interface IIncidentClient
     /// </summary>
     /// <param name="notificacion">Datos del incidente que se acaba de reportar.</param>
     Task RecibirAlertaIncidente(AlertaIncidenteDto notificacion);
+    /// <summary>
+    /// Recibe las actualizaciones de ubicación en tiempo real de los guardias.
+    /// </summary>
+    Task RecibirActualizacionUbicacion(UbicacionGuardiaDto ubicacion);
 }
 
 /// <summary>
@@ -27,4 +31,17 @@ public class AlertaIncidenteDto
     public DateTime FechaReporte { get; set; }
     public decimal? Latitud { get; set; }
     public decimal? Longitud { get; set; }
+}
+
+
+
+/// <summary>
+/// DTO para enviar las coordenadas de los guardias a la Web.
+/// </summary>
+public class UbicacionGuardiaDto
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Nombre { get; set; } = string.Empty;
+    public double Lat { get; set; }
+    public double Lon { get; set; }
 }
