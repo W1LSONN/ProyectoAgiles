@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type Camera, type CameraFormData, getCameras, createCamera, deleteCamera } from '../services/camerasService';
 import { ZONAS } from '../services/zonasService';
 import './CamerasPanel.css';
@@ -8,6 +8,7 @@ const CamerasPanel = () => {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
+  const [filtroZona, setFiltroZona] = useState<number | 'todas'>('todas');
 
   // Estado del formulario
   const [formData, setFormData] = useState<CameraFormData>({
@@ -117,6 +118,31 @@ const CamerasPanel = () => {
     return ZONAS.find(z => z.id === `zona ${zonaId}`)?.nombre || `Zona ${zonaId}`;
   };
 
+  // Extraer zonas únicas dinámicamente de los datos de cámaras (no hardcoded)
+  const zonasDisponibles = useMemo(() => {
+    const zonasMap = new Map<number, string>();
+    camaras.forEach(cam => {
+      if (cam.idZona) {
+        const nombre = cam.nombreZona || getNombreZona(cam.idZona);
+        zonasMap.set(cam.idZona, nombre);
+      }
+    });
+    return Array.from(zonasMap.entries())
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.id - b.id);
+  }, [camaras]);
+
+  // Filtrar cámaras según la zona seleccionada
+  const camarasFiltradas = useMemo(() => {
+    if (filtroZona === 'todas') return camaras;
+    return camaras.filter(cam => cam.idZona === filtroZona);
+  }, [camaras, filtroZona]);
+
+  const handleFiltroZonaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFiltroZona(value === 'todas' ? 'todas' : parseInt(value));
+  };
+
   return (
     <div className="cameras-panel">
       {/* SECCIÓN: FORMULARIO DE REGISTRO */}
@@ -199,13 +225,35 @@ const CamerasPanel = () => {
       <div className="cameras-table-section">
         <div className="section-header">
           <h2>Cámaras Registradas</h2>
-          <button
-            onClick={cargarCamaras}
-            className="btn btn-secondary btn-small"
-            disabled={cargando}
-          >
-            🔄 Actualizar
-          </button>
+          <div className="section-header-actions">
+            <div className="filtro-zona-container">
+              <label htmlFor="filtroZona" className="filtro-zona-label">Filtrar por zona:</label>
+              <select
+                id="filtroZona"
+                className="filtro-zona-select"
+                value={filtroZona}
+                onChange={handleFiltroZonaChange}
+                disabled={cargando}
+              >
+                <option value="todas">Todas las zonas</option>
+                {zonasDisponibles.map(zona => (
+                  <option key={zona.id} value={zona.id}>
+                    {zona.nombre}
+                  </option>
+                ))}
+              </select>
+              <span className="filtro-zona-count">
+                {camarasFiltradas.length} de {camaras.length}
+              </span>
+            </div>
+            <button
+              onClick={cargarCamaras}
+              className="btn btn-secondary btn-small"
+              disabled={cargando}
+            >
+              🔄 Actualizar
+            </button>
+          </div>
         </div>
 
         {cargando && camaras.length === 0 && (
@@ -228,6 +276,12 @@ const CamerasPanel = () => {
 
         {camaras.length > 0 && (
           <div className="tabla-scroll" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {camarasFiltradas.length === 0 && filtroZona !== 'todas' ? (
+              <div className="empty-state">
+                <p>No hay cámaras en la zona seleccionada</p>
+                <small>Selecciona otra zona o elige "Todas las zonas"</small>
+              </div>
+            ) : (
             <table className="cameras-tabla">
               <thead>
                 <tr>
@@ -239,7 +293,7 @@ const CamerasPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {camaras.map((camera, index) => (
+                {camarasFiltradas.map((camera, index) => (
                   <tr key={camera.idCamara || `cam-${index}`}>
                     <td className="td-nombre">
                       <strong>{camera.nombre}</strong>
@@ -269,6 +323,7 @@ const CamerasPanel = () => {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         )}
       </div>
