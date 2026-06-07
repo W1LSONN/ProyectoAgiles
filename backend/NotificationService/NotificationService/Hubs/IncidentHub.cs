@@ -107,4 +107,31 @@ public class IncidentHub : Hub<IIncidentClient>
             FechaReporte = DateTime.Now
         });
     }
+
+
+
+
+    // ── Geolocalización GPS en Tiempo Real (T-8) ─────────────────────
+
+    /// <summary>
+    /// Recibe la ubicación GPS del celular de un guardia y la retransmite
+    /// a todos los administradores conectados al panel web.
+    /// Este método es súper rápido porque no guarda en la base de datos SQL.
+    /// </summary>
+    public async Task ActualizarUbicacionGuardia(string userId, string nombre, double lat, double lon)
+    {
+        var ubicacion = new UbicacionGuardiaDto
+        {
+            UserId = userId,
+            Nombre = string.IsNullOrEmpty(nombre) ? $"Guardia {userId}" : nombre,
+            Lat = lat,
+            Lon = lon
+        };
+
+        // Hace el broadcast SÓLO a los clientes unidos al grupo "Admins" (El panel web de Karen)
+        await Clients.Group("Admins").RecibirActualizacionUbicacion(ubicacion);
+
+        // Log ligero para la consola
+        _logger.LogDebug("GPS Guardado: {Nombre} ({Lat}, {Lon})", ubicacion.Nombre, lat, lon);
+    }
 }
