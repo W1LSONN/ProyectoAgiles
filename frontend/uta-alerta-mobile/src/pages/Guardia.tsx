@@ -262,7 +262,7 @@ const Guardia: React.FC = () => {
   const connectionRef = React.useRef<signalR.HubConnection | null>(null);
   
   // Nuevos estados para filtros e interactividad
-  const [filtroZona, setFiltroZona] = useState<string | 'todas'>('todas');
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
   const [mostrarMapaAmpliado, setMostrarMapaAmpliado] = useState(false);
 
   // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
@@ -451,6 +451,14 @@ const Guardia: React.FC = () => {
         navigator.geolocation.clearWatch(watchId);
         watchId = null;
       }
+      
+      // Avisar al backend que ya no estamos disponibles (para que nos quite del mapa admin)
+      const conn = connectionRef.current;
+      const user = getUsuarioSeguro();
+      if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+        conn.invoke('ActualizarUbicacionGuardia', String(user.idUsuario), user.nombre, 0, 0)
+          .catch(err => console.error("Error al enviar desconexión del guardia:", err));
+      }
     };
 
     if (disponible && conectado) {
@@ -559,7 +567,11 @@ const Guardia: React.FC = () => {
     const cumpleZona = zonaFiltro === 'todas'
       || (n.zona ?? '').toLowerCase().includes(zonaFiltro.toLowerCase());
 
-    return cumpleSegmento && cumpleZona;
+    // Filtro por tipo de incidente
+    const cumpleTipo = filtroTipo === 'todos'
+      || n.tipoIncidente === filtroTipo;
+
+    return cumpleSegmento && cumpleZona && cumpleTipo;
   });
 
   const handleToggleDisponibilidad = async (checked: boolean) => {
@@ -643,37 +655,39 @@ const Guardia: React.FC = () => {
                 </IonSegmentButton>
               </IonSegment>
 
-              {/* SELECTOR DE FILTRO DE ZONAS */}
-              <div style={{ display: 'flex', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px 12px', border: '1px solid #ddd', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#666', marginRight: '8px', fontWeight: 'bold' }}>📍 Filtrar Zona:</span>
-                <select
-                  value={filtroZona}
-                  onChange={(e) => setFiltroZona(e.target.value)}
-                  style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#333', padding: '6px 0', fontWeight: '500' }}
-                >
-                  <option value="todas">Todas las Zonas</option>
-                  <option value="1">Zona 1 — Arquitectura / Humanidades</option>
-                  <option value="2">Zona 2 — Administración</option>
-                  <option value="3">Zona 3 — Ciencias de la Salud</option>
-                  <option value="4">Zona 4 — Ingeniería / FCI</option>
-                </select>
-              </div>
-            </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                {/* SELECTOR DE FILTRO DE ZONAS */}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px 12px', border: '1px solid #ddd' }}>
+                  <select
+                    value={zonaFiltro}
+                    onChange={(e) => setZonaFiltro(e.target.value)}
+                    style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#333', padding: '6px 0', fontWeight: '500' }}
+                  >
+                    <option value="todas">📍 Todas las zonas</option>
+                    {zonasDB.map((z) => (
+                      <option key={z.idZona} value={z.nombre}>
+                        {z.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            <div className="guardia-zona-filtro">
-              <IonSelect
-                value={zonaFiltro}
-                placeholder="Filtrar por zona"
-                onIonChange={(e) => setZonaFiltro(e.detail.value)}
-                interface="popover"
-              >
-                <IonSelectOption value="todas">Todas las zonas</IonSelectOption>
-                {zonasDB.map((z) => (
-                  <IonSelectOption key={z.idZona} value={z.nombre}>
-                    {z.nombre}
-                  </IonSelectOption>
-                ))}
-              </IonSelect>
+                {/* SELECTOR DE TIPO DE INCIDENTE */}
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px 12px', border: '1px solid #ddd' }}>
+                  <select
+                    value={filtroTipo}
+                    onChange={(e) => setFiltroTipo(e.target.value)}
+                    style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#333', padding: '6px 0', fontWeight: '500' }}
+                  >
+                    <option value="todos">🚨 Todos los tipos</option>
+                    <option value="Alerta de seguridad">Alerta de seguridad</option>
+                    <option value="Emergencia médica">Emergencia médica</option>
+                    <option value="Robo o asalto">Robo o asalto</option>
+                    <option value="Arma blanca">Arma blanca</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="guardia-lista">
@@ -711,7 +725,7 @@ const Guardia: React.FC = () => {
         </div>
 
         {/* DETALLE DEL INCIDENTE MODAL */}
-        <IonModal isOpen={!!seleccionada && !mostrarMapaAmpliado} onDidDismiss={cerrarDetalle}>
+        <IonModal isOpen={!!seleccionada} onDidDismiss={cerrarDetalle}>
           <IonHeader>
             <IonToolbar>
               <IonTitle>Notificación</IonTitle>
@@ -720,7 +734,7 @@ const Guardia: React.FC = () => {
               </IonButtons>
             </IonToolbar>
           </IonHeader>
-          <div className="modal-body">
+          <IonContent className="ion-padding">
             {seleccionada ? (
               <div>
                 <h2>{seleccionada.tipoIncidente}</h2>
@@ -811,7 +825,7 @@ const Guardia: React.FC = () => {
                 </div>
               </div>
             ) : null}
-          </div>
+          </IonContent>
         </IonModal>
 
         {/* MODAL DE MAPA AMPLIADO A PANTALLA COMPLETA */}

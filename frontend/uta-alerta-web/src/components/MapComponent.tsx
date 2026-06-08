@@ -22,6 +22,7 @@ import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 const redIcon = L.icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
   iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  className: 'pulsating-incident',
   shadowUrl,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -59,6 +60,7 @@ interface GuardiaLocation {
 interface MapComponentProps {
   incidentes: AlertaIncidente[];
   onZonaSeleccionada?: (zona: Zona) => void;
+  focoIncidente?: AlertaIncidente | null;
 }
 
 // Componente para la capa de guardias con clustering
@@ -114,13 +116,40 @@ const GuardiasLayer = ({ guardias }: { guardias: Record<string, GuardiaLocation>
   return null;
 };
 
-const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => {
+const MapFlyTo = ({ focoIncidente, encontrarZona }: { focoIncidente?: AlertaIncidente | null, encontrarZona: (inc: any) => Zona | undefined }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (focoIncidente) {
+      let lat = focoIncidente.latitud;
+      let lng = focoIncidente.longitud;
+      
+      if (!lat || !lng || lat === 0 || lng === 0) {
+        const zona = encontrarZona(focoIncidente);
+        if (zona) {
+          const [latBase, longBase] = getCentroPorZona(zona.id);
+          lat = latBase;
+          lng = longBase;
+        }
+      }
+      
+      if (lat && lng) {
+        map.flyTo([lat, lng], 19, { animate: true, duration: 1.5 });
+      }
+    }
+  }, [focoIncidente, map, encontrarZona]);
+  return null;
+};
+
+const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
   
   // Estado para T-11: Cámaras
   const [camaras, setCamaras] = useState<Camera[]>([]);
   const [mostrarCamaras, setMostrarCamaras] = useState(true);
-  const [filtroZonaCamara, setFiltroZonaCamara] = useState<number | 'todas'>('todas');
+  
+  // Filtros unificados
+  const [filtroZona, setFiltroZona] = useState<number | 'todas'>('todas');
+  const [filtroTipoIncidente, setFiltroTipoIncidente] = useState<string>('todos');
 
   // Estado para T-10: Ubicación de guardias
   const [guardias, setGuardias] = useState<Record<string, GuardiaLocation>>({});
@@ -139,30 +168,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
     fetchCamaras();
   }, []);
 
-  // --- INICIO: MOCK DATA PARA VISUALIZACIÓN DE GUARDIAS ---
-  // Este useEffect es para desarrollo. Simula la llegada de guardias al mapa.
-  // Se puede eliminar cuando la integración con el backend sea estable.
-  useEffect(() => {
-    const mockGuards: GuardiaLocation[] = [
-      { id: 'g1', nombre: 'Juan Pérez', lat: -1.2675, lon: -78.6250 },
-      { id: 'g2', nombre: 'Ana Gómez', lat: -1.2690, lon: -78.6235 },
-      { id: 'g3', nombre: 'Luis Torres', lat: -1.2680, lon: -78.6240 },
-      // Este guardia está muy cerca del anterior para forzar un cluster
-      { id: 'g4', nombre: 'Maria Cajas', lat: -1.2681, lon: -78.6241 },
-      { id: 'g5', nombre: 'Carlos Rivas', lat: -1.2700, lon: -78.6260 },
-    ];
 
-    // Simula la llegada de guardias uno por uno
-    mockGuards.forEach((guard, index) => {
-      setTimeout(() => {
-        setGuardias(prev => ({
-          ...prev,
-          [guard.id]: guard,
-        }));
-      }, 1000 * (index + 1)); // Llegan cada segundo
-    });
-  }, []);
-  // --- FIN: MOCK DATA ---
 
   // Conexión a SignalR para ubicación de guardias
   useEffect(() => {
@@ -182,15 +188,24 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
       // Validar que los datos recibidos son correctos
       if (data && typeof userId === 'string' && typeof lat === 'number' && typeof lon === 'number') {
-        setGuardias(prev => ({
-          ...prev,
-          [userId]: {
-            id: userId,
-            nombre: nombre || `Guardia ${userId}`,
-            lat: lat,
-            lon: lon,
-          },
-        }));
+        if (lat === 0 && lon === 0) {
+          // El guardia se desconectó o ya no está disponible
+          setGuardias(prev => {
+            const next = { ...prev };
+            delete next[userId];
+            return next;
+          });
+        } else {
+          setGuardias(prev => ({
+            ...prev,
+            [userId]: {
+              id: userId,
+              nombre: nombre || `Guardia ${userId}`,
+              lat: lat,
+              lon: lon,
+            },
+          }));
+        }
       }
     });
 
@@ -260,21 +275,15 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
   return (
     <div className="map-component">
       {/* Control flotante para la capa de cámaras y guardias */}
-      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>
-          <input 
-            type="checkbox" 
-            checked={mostrarCamaras} 
-            onChange={(e) => setMostrarCamaras(e.target.checked)} 
-            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-          />
-          📹 Capa de cámaras
-        </label>
-        {mostrarCamaras && (
+      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '200px' }}>
+        
+        {/* Filtros Generales */}
+        <div>
+          <label style={{ display: 'block', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333', fontSize: '0.85rem' }}>Filtro de Zona</label>
           <select
-            value={filtroZonaCamara}
-            onChange={(e) => setFiltroZonaCamara(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
-            style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.8rem', outline: 'none' }}
+            value={filtroZona}
+            onChange={(e) => setFiltroZona(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
+            style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', outline: 'none' }}
           >
             <option value="todas">Todas las zonas</option>
             {ZONAS.map((zona, index) => (
@@ -283,8 +292,38 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
               </option>
             ))}
           </select>
-        )}
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.9rem', borderTop: '1px solid #eee', paddingTop: '8px', marginTop: '4px' }}>
+        </div>
+
+        <div>
+          <label style={{ display: 'block', margin: '0 0 4px 0', fontWeight: 'bold', color: '#333', fontSize: '0.85rem' }}>Tipo de Incidente</label>
+          <select
+            value={filtroTipoIncidente}
+            onChange={(e) => setFiltroTipoIncidente(e.target.value)}
+            style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', outline: 'none' }}
+          >
+            <option value="todos">Todos los motivos</option>
+            <option value="Alerta de seguridad">Alerta de seguridad</option>
+            <option value="Emergencia médica">Emergencia médica</option>
+            <option value="Robo o asalto">Robo o asalto</option>
+            <option value="Arma blanca">Arma blanca</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+
+        <hr style={{ margin: '4px 0', border: 'none', borderTop: '1px solid #eee' }} />
+
+        {/* Capas adicionales */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.85rem' }}>
+          <input 
+            type="checkbox" 
+            checked={mostrarCamaras} 
+            onChange={(e) => setMostrarCamaras(e.target.checked)} 
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          📹 Capa de cámaras
+        </label>
+        
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.85rem' }}>
           <input
             type="checkbox"
             checked={mostrarGuardias}
@@ -306,6 +345,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             attribution="&copy; OpenStreetMap contributors"
             maxZoom={19}
           />
+          <MapFlyTo focoIncidente={focoIncidente} encontrarZona={encontrarZona} />
 
           {/* Capa de guardias con clustering */}
           {mostrarGuardias && <GuardiasLayer guardias={guardias} />}
@@ -330,14 +370,37 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
               <Popup>
                 <div className="popup-zona">
                   <h4>{zona.nombre}</h4>
-                  <p>Incidentes activos: <strong>{getCantidadIncidentes(zona.id)}</strong></p>
                 </div>
               </Popup>
             </Polygon>
           ))}
 
           {/* Marcadores de incidentes */}
-          {incidentes.map((incidente, idx) => {
+          {incidentes.filter(i => {
+            const estadoStr = (i.estado || (i as any).Estado || '').toLowerCase();
+            if (estadoStr === 'cerrado' || estadoStr === 'resuelto' || estadoStr === 'falsa alarma') {
+              return false;
+            }
+
+            // Filtro por Zona
+            if (filtroZona !== 'todas') {
+              const zonaIdTarget = `zona ${filtroZona}`; // Ej: "zona 1"
+              const zonaAsignada = encontrarZona(i);
+              if (!zonaAsignada || zonaAsignada.id !== zonaIdTarget) {
+                return false;
+              }
+            }
+
+            // Filtro por Tipo de Incidente
+            if (filtroTipoIncidente !== 'todos') {
+              const tipoIncidente = i.tipoIncidente || (i as any).TipoIncidente || '';
+              if (tipoIncidente !== filtroTipoIncidente) {
+                return false;
+              }
+            }
+
+            return true;
+          }).map((incidente, idx) => {
             const zona = encontrarZona(incidente);
             if (!zona) return null;
 
@@ -391,7 +454,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             const coordCount: Record<string, number> = {};
             
             const camarasFiltradas = camaras.filter(camara => 
-              filtroZonaCamara === 'todas' || camara.idZona === filtroZonaCamara
+              filtroZona === 'todas' || camara.idZona === filtroZona
             );
 
             return camarasFiltradas.map((camara) => {

@@ -1,0 +1,71 @@
+/* src/components/Menu.css */
+.menu-header-bg {
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  padding: 40px 20px 20px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.menu-avatar {
+  font-size: 64px;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.menu-nombre {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.menu-carrera {
+  margin: 4px 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.menu-rol {
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.menu-list {
+  padding-top: 10px;
+}
+
+.menu-list ion-item {
+  --padding-start: 20px;
+  --inner-padding-end: 20px;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.menu-list ion-item.selected {
+  --background: rgba(59, 130, 246, 0.1);
+  --color: #1e3a8a;
+  border-right: 4px solid #1e3a8a;
+}
+
+.menu-list ion-icon {
+  color: #64748b;
+}
+
+.menu-list ion-item.selected ion-icon {
+  color: #1e3a8a;
+}
+
+.menu-logout {
+  margin-top: 20px;
+  --color: #ef4444;
+}
+
+.menu-logout ion-icon {
+  color: #ef4444 !important;
+}

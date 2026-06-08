@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { type Camera, type CameraFormData, getCameras, createCamera, deleteCamera } from '../services/camerasService';
-import { ZONAS } from '../services/zonasService';
+import { ZONAS, getZonaPorCoordenadas } from '../services/zonasService';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -187,102 +187,66 @@ const CamerasPanel = () => {
         {error && <div className="alert alert-error">{error}</div>}
         {exito && <div className="alert alert-success">{exito}</div>}
 
-        <form onSubmit={handleSubmit} className="cameras-form">
-          <div className="form-group">
-            <label htmlFor="nombre">Nombre de la Cámara *</label>
-            <input
-              type="text"
-              id="nombre"
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleInputChange}
-              placeholder="Ej: Cámara Entrada Principal"
-              disabled={cargando}
-            />
+        <form onSubmit={handleSubmit} className="cameras-form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'center' }}>
+          {/* COLUMNA IZQUIERDA: MAPA */}
+          <div className="form-left-col">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '6px', display: 'block', color: '#fff' }}>
+                📍 Ubicar en el mapa (Haz clic para seleccionar la posición):
+              </label>
+              <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ccc', zIndex: 1 }}>
+                <MapContainer
+                  center={[formData.latitud, formData.longitud]}
+                  zoom={17}
+                  style={{ height: '100%', width: '100%' }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution="&copy; OpenStreetMap contributors"
+                  />
+                  <Marker position={[formData.latitud, formData.longitud]} icon={blueCameraIcon} />
+                  <MapClickSelector
+                    onLocationSelected={(lat, lng) => {
+                      const zonaDetectada = getZonaPorCoordenadas(lat, lng);
+                      const idZonaNum = zonaDetectada ? parseInt(zonaDetectada.id.replace('zona ', '')) || 1 : 1;
+                      setFormData(prev => ({
+                        ...prev,
+                        latitud: Number(lat.toFixed(7)),
+                        longitud: Number(lng.toFixed(7)),
+                        idZona: idZonaNum
+                      }));
+                    }}
+                  />
+                  <PanMapToMarker lat={formData.latitud} lng={formData.longitud} />
+                </MapContainer>
+              </div>
+            </div>
           </div>
 
-          <div className="form-group-row" style={{ display: 'flex', gap: '10px' }}>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label htmlFor="latitud">Latitud *</label>
+          {/* COLUMNA DERECHA: DATOS Y BOTÓN */}
+          <div className="form-right-col" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="form-group">
+              <label htmlFor="nombre">Nombre de la Cámara *</label>
               <input
-                type="number"
-                step="0.0000001"
-                id="latitud"
-                name="latitud"
-                value={formData.latitud}
+                type="text"
+                id="nombre"
+                name="nombre"
+                value={formData.nombre}
                 onChange={handleInputChange}
+                placeholder="Ej: Cámara Entrada Principal"
                 disabled={cargando}
               />
             </div>
 
-            <div className="form-group" style={{ flex: 1 }}>
-              <label htmlFor="longitud">Longitud *</label>
-              <input
-                type="number"
-                step="0.0000001"
-                id="longitud"
-                name="longitud"
-                value={formData.longitud}
-                onChange={handleInputChange}
-                disabled={cargando}
-              />
-            </div>
-          </div>
-
-          {/* MAPA INTERACTIVO DE UBICACIÓN */}
-          <div className="form-group" style={{ marginTop: '5px', marginBottom: '15px' }}>
-            <label style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '6px', display: 'block', color: '#444' }}>
-              📍 Ubicar en el mapa (Haz clic para seleccionar la posición):
-            </label>
-            <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ccc', zIndex: 1 }}>
-              <MapContainer
-                center={[formData.latitud, formData.longitud]}
-                zoom={17}
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution="&copy; OpenStreetMap contributors"
-                />
-                <Marker position={[formData.latitud, formData.longitud]} icon={blueCameraIcon} />
-                <MapClickSelector
-                  onLocationSelected={(lat, lng) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      latitud: Number(lat.toFixed(7)),
-                      longitud: Number(lng.toFixed(7))
-                    }));
-                  }}
-                />
-                <PanMapToMarker lat={formData.latitud} lng={formData.longitud} />
-              </MapContainer>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="idZona">Zona Asignada *</label>
-            <select
-              id="idZona"
-              name="idZona"
-              value={formData.idZona}
-              onChange={handleInputChange}
+            <button
+              type="submit"
+              className="btn btn-primary"
               disabled={cargando}
+              style={{ padding: '12px', fontSize: '1rem', justifyContent: 'center' }}
             >
-              {ZONAS.map((zona, index) => (
-                <option key={zona.id} value={index + 1}>
-                  {zona.nombre}
-                </option>
-              ))}
-            </select>
+              {cargando ? 'Registrando...' : '+ Registrar Cámara'}
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={cargando}
-          >
-            {cargando ? 'Registrando...' : '+ Registrar Cámara'}
-          </button>
         </form>
       </div>
 
@@ -327,7 +291,6 @@ const CamerasPanel = () => {
             </span>
           </div>
         </div>
-        </div>
 
         {cargando && camaras.length === 0 && (
           <div className="loading-state">
@@ -348,7 +311,7 @@ const CamerasPanel = () => {
         )}
 
         {camarasFiltradas.length > 0 && (
-          <div className="tabla-scroll" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <div className="tabla-scroll" style={{ overflowX: 'auto' }}>
             {camarasFiltradas.length === 0 && filtroZona !== 'todas' ? (
               <div className="empty-state">
                 <p>No hay cámaras en la zona seleccionada</p>
@@ -359,7 +322,6 @@ const CamerasPanel = () => {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Coordenadas</th>
                   <th>Zona</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -371,7 +333,6 @@ const CamerasPanel = () => {
                     <td className="td-nombre">
                       <strong>{camera.nombre}</strong>
                     </td>
-                    <td style={{ fontSize: '0.85rem' }}>{camera.latitud}, {camera.longitud}</td>
                     <td>
                       <span className="zona-badge">
                         {camera.nombreZona || getNombreZona(camera.idZona)}

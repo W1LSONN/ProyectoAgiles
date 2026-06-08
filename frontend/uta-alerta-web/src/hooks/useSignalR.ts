@@ -25,11 +25,13 @@ const mapIncidente = (incidente: any): AlertaIncidente => {
         estado: incidente.estado ?? incidente.Estado ?? 'Activo',
         guardiaAsignado: incidente.guardiaAsignado ?? incidente.GuardiaAsignado,
         rol,
-        carrera
+        carrera,
+        latitud: incidente.latitud ?? incidente.Latitud ?? 0,
+        longitud: incidente.longitud ?? incidente.Longitud ?? 0
     };
 };
 
-export function useSignalR(grupo: string) {
+export function useSignalR(grupo: string, onNewAlerta?: (alerta: AlertaIncidente) => void) {
     const [alertas, setAlertas] = useState<AlertaIncidente[]>([]);
     const [conectado, setConectado] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -86,7 +88,10 @@ export function useSignalR(grupo: string) {
 
                 const conn = signalRService.getConnection()!;
                 const manejarAlertaIncidente = (data: AlertaIncidente) => {
-                    if (!cancelado) agregarAlerta(data);
+                    if (!cancelado) {
+                        agregarAlerta(data);
+                        if (onNewAlerta) onNewAlerta(data);
+                    }
                 };
 
                 // Escuchar alertas
@@ -129,7 +134,7 @@ export function useSignalR(grupo: string) {
             }
             signalRService.leaveGroup(grupo);
         };
-    }, [grupo, agregarAlerta, cargarAlertasIniciales]);
+    }, [grupo, agregarAlerta, cargarAlertasIniciales, onNewAlerta]);
 
     return { alertas, conectado, error };
 }

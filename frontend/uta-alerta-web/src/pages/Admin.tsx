@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
 const DashboardPanel = lazy(() => import('../components/DashboardPanel'));
@@ -15,12 +15,31 @@ const INCIDENTS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:500
 const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas: alertasWS, error } = useSignalR('Admins');
   const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
   const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers'>('dashboard');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
+  const [incidenteFoco, setIncidenteFoco] = useState<AlertaIncidente | null>(null);
+
+  const [toasts, setToasts] = useState<{ id: number; data: AlertaIncidente }[]>([]);
+
+  const handleNewAlerta = useCallback((alerta: AlertaIncidente) => {
+    console.log("Disparando toast para nuevo incidente:", alerta);
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, data: alerta }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const handleToastClick = (toastId: number, alerta: AlertaIncidente) => {
+    setSeccion('mapa');
+    setIncidenteFoco(alerta);
+    setToasts(prev => prev.filter(t => t.id !== toastId));
+  };
+
+  const { alertas: alertasWS, error } = useSignalR('Admins', handleNewAlerta);
 
   const cargarIncidentes = async () => {
     const response = await fetch(`${INCIDENTS_URL}/api/incidents`);
@@ -306,6 +325,7 @@ const Admin = () => {
               <MapComponent 
                 incidentes={alertas}
                 onZonaSeleccionada={setZonaSeleccionada}
+                focoIncidente={incidenteFoco}
               />
             </Suspense>
           )}
@@ -324,6 +344,21 @@ const Admin = () => {
 
         </div>
       </main>
+
+      {/* ── TOASTS DE NOTIFICACIÓN FLOTANTES ── */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className="toast-notification" onClick={() => handleToastClick(toast.id, toast.data)}>
+            <div className="toast-icon">🚨</div>
+            <div className="toast-content">
+              <h4>Nuevo Incidente: {toast.data.tipoIncidente}</h4>
+              <p>{toast.data.facultad} - {toast.data.zona}</p>
+              <small>{toast.data.mensaje}</small>
+            </div>
+            <button className="toast-close" onClick={(e) => { e.stopPropagation(); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>×</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
