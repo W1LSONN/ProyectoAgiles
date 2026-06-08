@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type Camera, type CameraFormData, getCameras, createCamera, deleteCamera } from '../services/camerasService';
 import { ZONAS } from '../services/zonasService';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -150,12 +150,33 @@ const CamerasPanel = () => {
     return ZONAS.find(z => z.id === `zona ${zonaId}`)?.nombre || `Zona ${zonaId}`;
   };
 
-  // Filtrado de cámaras local
-  const camarasFiltradas = camaras.filter(camera => {
-    const coincideTexto = camera.nombre.toLowerCase().includes(filtroTexto.toLowerCase());
-    const coincideZona = filtroZona === 'todas' || camera.idZona === filtroZona;
-    return coincideTexto && coincideZona;
-  });
+  // Extraer zonas únicas dinámicamente de los datos de cámaras (no hardcoded)
+  const zonasDisponibles = useMemo(() => {
+    const zonasMap = new Map<number, string>();
+    camaras.forEach(cam => {
+      if (cam.idZona) {
+        const nombre = cam.nombreZona || getNombreZona(cam.idZona);
+        zonasMap.set(cam.idZona, nombre);
+      }
+    });
+    return Array.from(zonasMap.entries())
+      .map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.id - b.id);
+  }, [camaras]);
+
+  // Filtrado de cámaras local por texto y zona
+  const camarasFiltradas = useMemo(() => {
+    return camaras.filter(camera => {
+      const coincideTexto = camera.nombre.toLowerCase().includes(filtroTexto.toLowerCase());
+      const coincideZona = filtroZona === 'todas' || camera.idZona === filtroZona;
+      return coincideTexto && coincideZona;
+    });
+  }, [camaras, filtroTexto, filtroZona]);
+
+  const handleFiltroZonaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setFiltroZona(value === 'todas' ? 'todas' : parseInt(value));
+  };
 
   return (
     <div className="cameras-panel">
@@ -290,17 +311,22 @@ const CamerasPanel = () => {
             />
             <select
               value={filtroZona}
-              onChange={(e) => setFiltroZona(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
+              onChange={handleFiltroZonaChange}
               style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem' }}
+              disabled={cargando}
             >
-              <option value="todas">Todas las Zonas</option>
+              <option value="todas">Todas las zonas</option>
               {ZONAS.map((zona, index) => (
                 <option key={zona.id} value={index + 1}>
                   {zona.nombre}
                 </option>
               ))}
             </select>
+            <span className="filtro-zona-count" style={{ display: 'flex', alignItems: 'center', fontSize: '0.9rem', color: '#666', marginLeft: '5px' }}>
+              {camarasFiltradas.length} de {camaras.length}
+            </span>
           </div>
+        </div>
         </div>
 
         {cargando && camaras.length === 0 && (
@@ -323,6 +349,12 @@ const CamerasPanel = () => {
 
         {camarasFiltradas.length > 0 && (
           <div className="tabla-scroll" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            {camarasFiltradas.length === 0 && filtroZona !== 'todas' ? (
+              <div className="empty-state">
+                <p>No hay cámaras en la zona seleccionada</p>
+                <small>Selecciona otra zona o elige "Todas las zonas"</small>
+              </div>
+            ) : (
             <table className="cameras-tabla">
               <thead>
                 <tr>
@@ -364,6 +396,7 @@ const CamerasPanel = () => {
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         )}
       </div>
