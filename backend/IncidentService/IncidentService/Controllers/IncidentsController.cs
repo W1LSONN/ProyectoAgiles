@@ -104,9 +104,35 @@ public class IncidentsController : ControllerBase
             return NotFound(new { mensaje = $"Incidente {id} no encontrado." });
         }
 
+        if (incidente.Estado == "Asumido")
+        {
+            return BadRequest(new { mensaje = "El incidente ya ha sido asumido por otro guardia." });
+        }
+
+        if (incidente.Estado == "Cerrado")
+        {
+            return BadRequest(new { mensaje = "El incidente ya se encuentra cerrado." });
+        }
+
         incidente.GuardiaAsignado = request.GuardiaAsignado.Trim();
         incidente.Estado = "Asumido";
         await _context.SaveChangesAsync();
+
+        // Notificar a todos por SignalR en tiempo real que el estado cambió
+        var zona = await _context.Zonas.FindAsync(incidente.IdZona);
+        await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
+        {
+            IdIncidente   = incidente.IdIncidente,
+            NombreUsuario = $"Usuario #{incidente.IdUsuario}",
+            Facultad      = zona?.Nombre ?? "UTA",
+            Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
+            TipoIncidente = incidente.TipoIncidente,
+            FechaReporte  = incidente.FechaReporte,
+            Latitud       = incidente.Latitud,
+            Longitud      = incidente.Longitud,
+            Estado        = incidente.Estado,
+            GuardiaAsignado = incidente.GuardiaAsignado
+        });
 
         return Ok(new
         {
@@ -172,6 +198,30 @@ public class IncidentsController : ControllerBase
         return Ok(incidentes);
     }
 
+    [HttpGet("usuario/{idUsuario}")]
+    public async Task<IActionResult> ObtenerIncidentesPorUsuario(int idUsuario)
+    {
+        var incidentes = await _context.Incidentes
+            .Where(i => i.IdUsuario == idUsuario)
+            .OrderByDescending(i => i.FechaReporte)
+            .Select(i => new
+            {
+                idIncidente = i.IdIncidente,
+                idUsuario = i.IdUsuario,
+                idZona = i.IdZona,
+                tipoIncidente = i.TipoIncidente,
+                estado = i.Estado,
+                fechaReporte = i.FechaReporte,
+                mensaje = i.Descripcion,
+                descripcion = i.Descripcion,
+                latitud = i.Latitud,
+                longitud = i.Longitud
+            })
+            .ToListAsync();
+
+        return Ok(incidentes);
+    }
+
     [HttpPut("{id}/cerrar")]
     public async Task<IActionResult> CerrarIncidente(int id, [FromBody] CerrarIncidenteRequest request)
     {
@@ -198,8 +248,21 @@ public class IncidentsController : ControllerBase
         {
             await _context.SaveChangesAsync();
 
-            // NOTA: Aquí posteriormente Christopher agregará la lógica de SignalR
-            // para notificar a los demás guardias que el incidente desaparece de su lista.
+            // Notificar a todos por SignalR en tiempo real que el incidente se cerró
+            var zona = await _context.Zonas.FindAsync(incidente.IdZona);
+            await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
+            {
+                IdIncidente   = incidente.IdIncidente,
+                NombreUsuario = $"Usuario #{incidente.IdUsuario}",
+                Facultad      = zona?.Nombre ?? "UTA",
+                Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
+                TipoIncidente = incidente.TipoIncidente,
+                FechaReporte  = incidente.FechaReporte,
+                Latitud       = incidente.Latitud,
+                Longitud      = incidente.Longitud,
+                Estado        = incidente.Estado,
+                GuardiaAsignado = incidente.GuardiaAsignado
+            });
 
             return Ok(new
             {
@@ -292,3 +355,4 @@ public class IncidentsController : ControllerBase
         return Ok(response);
     }
 }
+

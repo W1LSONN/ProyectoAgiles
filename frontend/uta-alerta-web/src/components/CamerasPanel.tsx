@@ -1,13 +1,48 @@
 import { useState, useEffect } from 'react';
 import { type Camera, type CameraFormData, getCameras, createCamera, deleteCamera } from '../services/camerasService';
 import { ZONAS } from '../services/zonasService';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import './CamerasPanel.css';
+
+// Componente para capturar clics en el mapa e interactuar
+const MapClickSelector = ({ onLocationSelected }: { onLocationSelected: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click(e) {
+      onLocationSelected(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
+
+// Componente para mover el mapa si cambian las coordenadas manuales
+const PanMapToMarker = ({ lat, lng }: { lat: number; lng: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([lat, lng], map.getZoom());
+  }, [lat, lng, map]);
+  return null;
+};
+
+// Icono personalizado para cámara a registrar
+const blueCameraIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+  iconRetinaUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
 
 const CamerasPanel = () => {
   const [camaras, setCamaras] = useState<Camera[]>([]);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exito, setExito] = useState<string | null>(null);
+
+  // Estados de filtrado
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [filtroZona, setFiltroZona] = useState<number | 'todas'>('todas');
 
   // Estado del formulario
   const [formData, setFormData] = useState<CameraFormData>({
@@ -33,7 +68,6 @@ const CamerasPanel = () => {
 
   // Cargar cámaras al montar el componente
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarCamaras();
   }, []);
 
@@ -99,7 +133,7 @@ const CamerasPanel = () => {
     try {
       await deleteCamera(id);
 
-      setExito('Cámara eliminada exitosamente');
+      setExito('Cámara registrada exitosamente');
       await cargarCamaras();
 
       // Ocultar mensaje de éxito después de 3 segundos
@@ -113,9 +147,15 @@ const CamerasPanel = () => {
 
   const getNombreZona = (zonaId: number | undefined) => {
     if (!zonaId) return 'Desconocida';
-    // Mapear el ID numérico al ID string de ZONAS (ej: 1 -> 'zona 1')
     return ZONAS.find(z => z.id === `zona ${zonaId}`)?.nombre || `Zona ${zonaId}`;
   };
+
+  // Filtrado de cámaras local
+  const camarasFiltradas = camaras.filter(camera => {
+    const coincideTexto = camera.nombre.toLowerCase().includes(filtroTexto.toLowerCase());
+    const coincideZona = filtroZona === 'todas' || camera.idZona === filtroZona;
+    return coincideTexto && coincideZona;
+  });
 
   return (
     <div className="cameras-panel">
@@ -168,6 +208,36 @@ const CamerasPanel = () => {
             </div>
           </div>
 
+          {/* MAPA INTERACTIVO DE UBICACIÓN */}
+          <div className="form-group" style={{ marginTop: '5px', marginBottom: '15px' }}>
+            <label style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '6px', display: 'block', color: '#444' }}>
+              📍 Ubicar en el mapa (Haz clic para seleccionar la posición):
+            </label>
+            <div style={{ height: '220px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ccc', zIndex: 1 }}>
+              <MapContainer
+                center={[formData.latitud, formData.longitud]}
+                zoom={17}
+                style={{ height: '100%', width: '100%' }}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap contributors"
+                />
+                <Marker position={[formData.latitud, formData.longitud]} icon={blueCameraIcon} />
+                <MapClickSelector
+                  onLocationSelected={(lat, lng) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      latitud: Number(lat.toFixed(7)),
+                      longitud: Number(lng.toFixed(7))
+                    }));
+                  }}
+                />
+                <PanMapToMarker lat={formData.latitud} lng={formData.longitud} />
+              </MapContainer>
+            </div>
+          </div>
+
           <div className="form-group">
             <label htmlFor="idZona">Zona Asignada *</label>
             <select
@@ -197,15 +267,40 @@ const CamerasPanel = () => {
 
       {/* SECCIÓN: TABLA DE CÁMARAS */}
       <div className="cameras-table-section">
-        <div className="section-header">
-          <h2>Cámaras Registradas</h2>
-          <button
-            onClick={cargarCamaras}
-            className="btn btn-secondary btn-small"
-            disabled={cargando}
-          >
-            🔄 Actualizar
-          </button>
+        <div className="section-header" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2>Cámaras Registradas</h2>
+            <button
+              onClick={cargarCamaras}
+              className="btn btn-secondary btn-small"
+              disabled={cargando}
+            >
+              🔄 Actualizar
+            </button>
+          </div>
+
+          {/* FILTROS DE BÚSQUEDA */}
+          <div className="filters-container" style={{ display: 'flex', gap: '10px', marginTop: '5px' }}>
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nombre o edificio..."
+              value={filtroTexto}
+              onChange={(e) => setFiltroTexto(e.target.value)}
+              style={{ flex: 2, padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem' }}
+            />
+            <select
+              value={filtroZona}
+              onChange={(e) => setFiltroZona(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
+              style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem' }}
+            >
+              <option value="todas">Todas las Zonas</option>
+              {ZONAS.map((zona, index) => (
+                <option key={zona.id} value={index + 1}>
+                  {zona.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {cargando && camaras.length === 0 && (
@@ -215,18 +310,18 @@ const CamerasPanel = () => {
           </div>
         )}
 
-        {!cargando && camaras.length === 0 && (
+        {!cargando && camarasFiltradas.length === 0 && (
           <div className="empty-state">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
               <circle cx="12" cy="13" r="4" />
             </svg>
-            <p>No hay cámaras registradas</p>
-            <small>Registra la primera cámara usando el formulario anterior</small>
+            <p>No se encontraron cámaras</p>
+            <small>Ajusta los filtros o registra una nueva cámara usando el formulario</small>
           </div>
         )}
 
-        {camaras.length > 0 && (
+        {camarasFiltradas.length > 0 && (
           <div className="tabla-scroll" style={{ maxHeight: '400px', overflowY: 'auto' }}>
             <table className="cameras-tabla">
               <thead>
@@ -239,7 +334,7 @@ const CamerasPanel = () => {
                 </tr>
               </thead>
               <tbody>
-                {camaras.map((camera, index) => (
+                {camarasFiltradas.map((camera, index) => (
                   <tr key={camera.idCamara || `cam-${index}`}>
                     <td className="td-nombre">
                       <strong>{camera.nombre}</strong>
@@ -272,8 +367,6 @@ const CamerasPanel = () => {
           </div>
         )}
       </div>
-
-      {/* INFO: Documentación de API eliminada ya que el backend real existe */}
     </div>
   );
 };

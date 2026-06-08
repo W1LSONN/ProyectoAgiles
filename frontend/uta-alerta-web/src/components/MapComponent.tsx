@@ -120,6 +120,7 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
   // Estado para T-11: Cámaras
   const [camaras, setCamaras] = useState<Camera[]>([]);
   const [mostrarCamaras, setMostrarCamaras] = useState(true);
+  const [filtroZonaCamara, setFiltroZonaCamara] = useState<number | 'todas'>('todas');
 
   // Estado para T-10: Ubicación de guardias
   const [guardias, setGuardias] = useState<Record<string, GuardiaLocation>>({});
@@ -258,27 +259,42 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
 
   return (
     <div className="map-component">
-      {/* Control flotante para la capa de cámaras */}
-      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333' }}>
+      {/* Control flotante para la capa de cámaras y guardias */}
+      <div className="layer-controls" style={{ position: 'absolute', top: '15px', right: '15px', zIndex: 1000, background: 'white', padding: '12px 16px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}>
           <input 
             type="checkbox" 
             checked={mostrarCamaras} 
             onChange={(e) => setMostrarCamaras(e.target.checked)} 
-            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
           />
-          📹 Mostrar Cámaras
+          📹 Capa de cámaras
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333' }}>
+        {mostrarCamaras && (
+          <select
+            value={filtroZonaCamara}
+            onChange={(e) => setFiltroZonaCamara(e.target.value === 'todas' ? 'todas' : parseInt(e.target.value))}
+            style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.8rem', outline: 'none' }}
+          >
+            <option value="todas">Todas las zonas</option>
+            {ZONAS.map((zona, index) => (
+              <option key={zona.id} value={index + 1}>
+                {zona.nombre}
+              </option>
+            ))}
+          </select>
+        )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, fontWeight: 'bold', color: '#333', fontSize: '0.9rem', borderTop: '1px solid #eee', paddingTop: '8px', marginTop: '4px' }}>
           <input
             type="checkbox"
             checked={mostrarGuardias}
             onChange={(e) => setMostrarGuardias(e.target.checked)}
-            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
           />
           🛡️ Mostrar Guardias ({Object.keys(guardias).length})
         </label>
       </div>
+
       <div className="map-container">
         <MapContainer
           center={[-1.2688, -78.6248] as L.LatLngExpression}
@@ -374,8 +390,13 @@ const MapComponent = ({ incidentes, onZonaSeleccionada }: MapComponentProps) => 
             // Diccionario para contar cuántas cámaras están en las mismas coordenadas
             const coordCount: Record<string, number> = {};
             
-            return camaras.map((camara) => {
+            const camarasFiltradas = camaras.filter(camara => 
+              filtroZonaCamara === 'todas' || camara.idZona === filtroZonaCamara
+            );
+
+            return camarasFiltradas.map((camara) => {
               if (camara.latitud == null || camara.longitud == null) return null;
+
               
               const coordKey = `${camara.latitud},${camara.longitud}`;
               const count = coordCount[coordKey] || 0;

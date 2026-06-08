@@ -14,4 +14,6 @@ public class AlertaNotificacionDto
     public DateTime FechaReporte { get; set; }
     public decimal? Latitud { get; set; }
     public decimal? Longitud { get; set; }
+    public string? Estado { get; set; }
+    public string? GuardiaAsignado { get; set; }
 }

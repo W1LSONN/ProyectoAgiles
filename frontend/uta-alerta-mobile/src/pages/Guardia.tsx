@@ -95,6 +95,7 @@ const incidentIcon = L.divIcon({
   popupAnchor: [0, -15]
 });
 
+// Componente para mapa pequeño de detalles
 const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: string }> = ({ lat, lng, zonaNombre }) => {
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapRef = React.useRef<L.Map | null>(null);
@@ -154,6 +155,62 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
   );
 };
 
+// Componente para mapa ampliado a pantalla completa
+const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNombre?: string }> = ({ lat, lng, zonaNombre }) => {
+  const mapContainerRef = React.useRef<HTMLDivElement>(null);
+  const mapRef = React.useRef<L.Map | null>(null);
+
+  React.useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(mapContainerRef.current, {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([lat, lng], 17);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(mapRef.current);
+
+      CAMPUS_ZONES.forEach(z => {
+        L.polygon(z.coordenadas as L.LatLngExpression[], {
+          color: z.color,
+          weight: 2.5,
+          opacity: 0.7,
+          fillOpacity: 0.2,
+          fillColor: z.color
+        }).addTo(mapRef.current!);
+      });
+
+      L.marker([lat, lng], { icon: incidentIcon })
+        .addTo(mapRef.current)
+        .bindPopup(`<b>Incidente:</b><br/>${zonaNombre || 'Ubicación exacta'}`)
+        .openPopup();
+    } else {
+      mapRef.current.setView([lat, lng], 17);
+    }
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [lat, lng, zonaNombre]);
+
+  return (
+    <div 
+      ref={mapContainerRef} 
+      style={{ 
+        height: '100%', 
+        width: '100%', 
+        zIndex: 1
+      }} 
+    />
+  );
+};
+
 const mapIncidente = (incidente: any): NotificacionGuardia => {
   const rawIdIncidente = incidente.idIncidente ?? incidente.IdIncidente ?? incidente.id ?? incidente.ID;
   const idIncidente = Number(rawIdIncidente);
@@ -190,6 +247,10 @@ const Guardia: React.FC = () => {
   const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
   const [observacionesCierre, setObservacionesCierre] = useState('');
   const connectionRef = React.useRef<signalR.HubConnection | null>(null);
+  
+  // Nuevos estados para filtros e interactividad
+  const [filtroZona, setFiltroZona] = useState<string | 'todas'>('todas');
+  const [mostrarMapaAmpliado, setMostrarMapaAmpliado] = useState(false);
 
   // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
   const getUsuarioSeguro = () => {
@@ -288,7 +349,6 @@ const Guardia: React.FC = () => {
       try {
         await connection.start();
         setConectado(true);
-        // Unirse a grupos: Guardias y grupo específico si existe
         await connection.invoke('UnirseAlGrupo', 'Guardias').catch(() => {});
         if (usuario.grupo) {
           await connection.invoke('UnirseAlGrupo', usuario.grupo).catch(() => {});
@@ -337,7 +397,7 @@ const Guardia: React.FC = () => {
             };
             
             // Invoca el método del Hub en el backend (T-8)
-            conn.invoke('ActualizarUbicacionGuardia', payload)
+            conn.invoke('ActualizarUbicacionGuardia', payload.UserId, payload.Nombre, payload.Lat, payload.Lon)
               .catch(err => console.error("Error al enviar ubicación del guardia:", err));
           }
         },
@@ -377,6 +437,7 @@ const Guardia: React.FC = () => {
   const cerrarDetalle = () => {
     setSeleccionada(null);
     setObservacionesCierre('');
+    setMostrarMapaAmpliado(false);
   };
 
   const asumirIncidente = async () => {
@@ -454,12 +515,22 @@ const Guardia: React.FC = () => {
     }
   };
 
+  // Filtrar notificaciones por segmento y zona seleccionada
   const notificacionesFiltradas = notificaciones.filter(n => {
+    let coincideSegmento = false;
     if (segment === 'pendientes') {
-      return (n.estado ?? 'Activo') === 'Activo';
+      coincideSegmento = (n.estado ?? 'Activo') === 'Activo';
     } else {
-      return n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
+      coincideSegmento = n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
     }
+
+    if (!coincideSegmento) return false;
+    if (filtroZona === 'todas') return true;
+
+    // Obtener número del filtro de zona (ej: "1")
+    const numeroFiltro = filtroZona.replace(/^\D+/g, '');
+    const zonaIncidente = String(n.zona || '').toLowerCase();
+    return zonaIncidente.includes(numeroFiltro);
   });
 
   const handleToggleDisponibilidad = async (checked: boolean) => {
@@ -488,7 +559,6 @@ const Guardia: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError('No se pudo actualizar la disponibilidad');
-      // Revertir el toggle
       setDisponible(!checked);
     } finally {
       setActualizandoDisponibilidad(false);
@@ -511,7 +581,6 @@ const Guardia: React.FC = () => {
             <IonToggle 
               checked={disponible} 
               onIonChange={(e) => {
-                // Solo disparamos si es un evento del usuario y diferente al estado actual
                 if (e.detail.checked !== disponible) {
                   handleToggleDisponibilidad(e.detail.checked);
                 }
@@ -534,7 +603,8 @@ const Guardia: React.FC = () => {
               )}
             </div>
 
-            <div style={{ padding: '0 16px', marginBottom: '16px' }}>
+            {/* SEGMENTOS Y FILTRO DE ZONAS */}
+            <div style={{ padding: '0 16px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <IonSegment value={segment} onIonChange={(e) => setSegment(e.detail.value as any)}>
                 <IonSegmentButton value="pendientes">
                   <IonLabel>Pendientes</IonLabel>
@@ -543,6 +613,22 @@ const Guardia: React.FC = () => {
                   <IonLabel>Mis Casos</IonLabel>
                 </IonSegmentButton>
               </IonSegment>
+
+              {/* SELECTOR DE FILTRO DE ZONAS */}
+              <div style={{ display: 'flex', alignItems: 'center', background: '#fff', borderRadius: '8px', padding: '4px 12px', border: '1px solid #ddd', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#666', marginRight: '8px', fontWeight: 'bold' }}>📍 Filtrar Zona:</span>
+                <select
+                  value={filtroZona}
+                  onChange={(e) => setFiltroZona(e.target.value)}
+                  style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: '#333', padding: '6px 0', fontWeight: '500' }}
+                >
+                  <option value="todas">Todas las Zonas</option>
+                  <option value="1">Zona 1 — Arquitectura / Humanidades</option>
+                  <option value="2">Zona 2 — Administración</option>
+                  <option value="3">Zona 3 — Ciencias de la Salud</option>
+                  <option value="4">Zona 4 — Ingeniería / FCI</option>
+                </select>
+              </div>
             </div>
 
             <div className="guardia-lista">
@@ -579,7 +665,8 @@ const Guardia: React.FC = () => {
           </main>
         </div>
 
-        <IonModal isOpen={!!seleccionada} onDidDismiss={cerrarDetalle}>
+        {/* DETALLE DEL INCIDENTE MODAL */}
+        <IonModal isOpen={!!seleccionada && !mostrarMapaAmpliado} onDidDismiss={cerrarDetalle}>
           <IonHeader>
             <IonToolbar>
               <IonTitle>Notificación</IonTitle>
@@ -603,11 +690,24 @@ const Guardia: React.FC = () => {
                 )}
                 <p><strong>Motivo:</strong> {seleccionada.tipoIncidente}</p>
                 <p><strong>Zona:</strong> {seleccionada.zona}</p>
+                
+                {/* CABECERA DE MAPA CON BOTÓN DE AMPLIACIÓN */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#555' }}>📍 Mapa de Ubicación:</span>
+                  <IonButton 
+                    fill="clear" 
+                    size="small" 
+                    onClick={() => setMostrarMapaAmpliado(true)}
+                    style={{ '--padding-start': '0', '--padding-end': '0', margin: 0, fontWeight: 'bold', fontSize: '0.85rem' }}
+                  >
+                    🖥️ Ampliar Mapa
+                  </IonButton>
+                </div>
+
                 {(() => {
                   let lat = seleccionada.latitud;
                   let lng = seleccionada.longitud;
                   
-                  // Si no hay coordenadas exactas de GPS, usar el centro de la zona respectiva
                   if (lat == null || lng == null || lat === 0 || lng === 0) {
                     const zStr = String(seleccionada.zona || '').toLowerCase();
                     if (zStr.includes('1')) {
@@ -624,7 +724,7 @@ const Guardia: React.FC = () => {
                       lng = -78.625190;
                     } else {
                       lat = -1.2688;
-                      lng = -78.6248; // Centro de la UTA
+                      lng = -78.6248;
                     }
                   }
                   
@@ -666,6 +766,59 @@ const Guardia: React.FC = () => {
                 </div>
               </div>
             ) : null}
+          </div>
+        </IonModal>
+
+        {/* MODAL DE MAPA AMPLIADO A PANTALLA COMPLETA */}
+        <IonModal isOpen={mostrarMapaAmpliado} onDidDismiss={() => setMostrarMapaAmpliado(false)}>
+          <IonHeader>
+            <IonToolbar>
+              <IonTitle>Mapa de Guardia Ampliado</IonTitle>
+              <IonButtons slot="end">
+                <IonButton onClick={() => setMostrarMapaAmpliado(false)} style={{ fontWeight: 'bold' }}>Cerrar</IonButton>
+              </IonButtons>
+            </IonToolbar>
+          </IonHeader>
+          <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', background: '#fff' }}>
+            {seleccionada && (() => {
+              let lat = seleccionada.latitud;
+              let lng = seleccionada.longitud;
+              
+              if (lat == null || lng == null || lat === 0 || lng === 0) {
+                const zStr = String(seleccionada.zona || '').toLowerCase();
+                if (zStr.includes('1')) {
+                  lat = -1.267476;
+                  lng = -78.624879;
+                } else if (zStr.includes('2')) {
+                  lat = -1.269757;
+                  lng = -78.623375;
+                } else if (zStr.includes('3')) {
+                  lat = -1.267611;
+                  lng = -78.623506;
+                } else if (zStr.includes('4')) {
+                  lat = -1.269513;
+                  lng = -78.625190;
+                } else {
+                  lat = -1.2688;
+                  lng = -78.6248;
+                }
+              }
+              
+              return (
+                <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
+                  <div style={{ position: 'absolute', top: '15px', left: '15px', zIndex: 1000, background: 'rgba(0,0,0,0.8)', color: '#fff', padding: '8px 12px', borderRadius: '6px', fontSize: '0.85rem', pointerEvents: 'none', fontWeight: 'bold' }}>
+                    🚨 {seleccionada.tipoIncidente} — {seleccionada.zona}
+                  </div>
+                  <div style={{ height: '100%', width: '100%' }}>
+                    <MobileIncidentMapFullscreen 
+                      lat={lat} 
+                      lng={lng} 
+                      zonaNombre={seleccionada.zona} 
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </IonModal>
       </IonContent>
