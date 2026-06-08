@@ -173,7 +173,12 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
   // Conexión a SignalR para ubicación de guardias
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(SIGNALR_URL)
+      .withUrl(SIGNALR_URL, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Bypass-Tunnel-Reminder': 'true'
+        }
+      })
       .withAutomaticReconnect()
       .build();
 

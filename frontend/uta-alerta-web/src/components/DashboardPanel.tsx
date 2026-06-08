@@ -10,12 +10,13 @@ import {
   Tooltip,
   Legend,
   Title,
+  Filler,
 } from 'chart.js';
 import type { TooltipItem } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
 import './DashboardPanel.css';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Tooltip, Legend, Title);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Tooltip, Legend, Title, Filler);
 
 const STATS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 

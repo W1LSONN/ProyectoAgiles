@@ -25,7 +25,12 @@ class SignalRService {
         if (this.connection) return this.connection;
 
         this.connection = new signalR.HubConnectionBuilder()
-            .withUrl(HUB_URL)
+            .withUrl(HUB_URL, {
+                headers: {
+                    'ngrok-skip-browser-warning': 'true',
+                    'Bypass-Tunnel-Reminder': 'true'
+                }
+            })
             .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
             .configureLogging(signalR.LogLevel.Information)
             .build();

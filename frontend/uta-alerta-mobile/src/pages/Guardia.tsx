@@ -18,8 +18,10 @@ import {
   IonTextarea,
   IonSelect,
   IonSelectOption,
+  IonBadge,
 } from '@ionic/react';
-import { menuOutline, personCircleOutline } from 'ionicons/icons';
+import { menuOutline, personCircleOutline, closeOutline, shieldCheckmarkOutline } from 'ionicons/icons';
+import { Geolocation } from '@capacitor/geolocation';
 import './Guardia.css';
 import * as signalR from '@microsoft/signalr';
 import L from 'leaflet';
@@ -298,6 +300,10 @@ const Guardia: React.FC = () => {
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(SIGNALR_URL, {
         accessTokenFactory: () => token,
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Bypass-Tunnel-Reminder': 'true'
+        }
       })
       .withAutomaticReconnect()
       .build();
@@ -405,50 +411,61 @@ const Guardia: React.FC = () => {
 
   // Efecto para enviar la geolocalización del guardia al backend
   useEffect(() => {
-    let watchId: number | null = null;
+    let watchId: string | null = null; // En Capacitor watchId es un string
 
-    const startWatchingLocation = () => {
-      if (!navigator.geolocation) {
-        setError("Geolocalización no es soportada en este dispositivo.");
-        return;
-      }
-
-      // Inicia el seguimiento de la posición
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const conn = connectionRef.current;
-          const user = getUsuarioSeguro();
-
-          // Si estamos conectados y tenemos un usuario, enviamos la ubicación
-          if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
-            const payload = {
-              UserId: String(user.idUsuario),
-              Nombre: user.nombre,
-              Lat: latitude,
-              Lon: longitude,
-            };
-            
-            // Invoca el método del Hub en el backend (T-8)
-            conn.invoke('ActualizarUbicacionGuardia', payload.UserId, payload.Nombre, payload.Lat, payload.Lon)
-              .catch(err => console.error("Error al enviar ubicación del guardia:", err));
+    const startWatchingLocation = async () => {
+      try {
+        // Pedir permisos explícitamente en Android/iOS
+        const perm = await Geolocation.checkPermissions();
+        if (perm.location !== 'granted') {
+          const req = await Geolocation.requestPermissions();
+          if (req.location !== 'granted') {
+            setError("Permisos de ubicación denegados.");
+            return;
           }
-        },
-        (error) => {
-          console.error("Error de geolocalización:", error);
-          setError("No se pudo obtener la ubicación. Revisa los permisos de la app.");
-        },
-        {
-          enableHighAccuracy: true, // Máxima precisión
-          timeout: 10000,           // 10 segundos de timeout
-          maximumAge: 0,            // No usar caché de ubicación
         }
-      );
+
+        // Inicia el seguimiento de la posición usando Capacitor Geolocation
+        watchId = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            timeout: 30000, // Más tiempo para lugares cerrados
+            maximumAge: 10000 // Aceptar ubicaciones de hace 10s
+          },
+          (position, err) => {
+            if (err) {
+              console.error("Error de geolocalización Capacitor:", err);
+              // Solo mostrar error si es muy grave, para no ser molesto.
+              return;
+            }
+            if (position) {
+              const { latitude, longitude } = position.coords;
+              const conn = connectionRef.current;
+              const user = getUsuarioSeguro();
+
+              if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+                const payload = {
+                  UserId: String(user.idUsuario),
+                  Nombre: user.nombre,
+                  Lat: latitude,
+                  Lon: longitude,
+                };
+                
+                conn.invoke('ActualizarUbicacionGuardia', payload.UserId, payload.Nombre, payload.Lat, payload.Lon)
+                  .catch(err => console.error("Error al enviar ubicación del guardia:", err));
+              }
+            }
+          }
+        );
+      } catch (err) {
+        console.error("Error inicializando GPS:", err);
+        setError("Error al encender GPS. Revisa permisos.");
+      }
     };
 
     const stopWatchingLocation = () => {
       if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+        Geolocation.clearWatch({ id: watchId });
         watchId = null;
       }
       
