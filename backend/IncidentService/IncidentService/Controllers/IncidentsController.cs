@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IncidentService.Data;
@@ -277,25 +278,54 @@ public class IncidentsController : ControllerBase
     }
 
     [HttpGet("stats")]
-    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo)
+    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo, [FromQuery] string? inicio, [FromQuery] string? fin)
     {
-        // 1. Rango de Fechas (Por defecto: mes)
-        DateTime fechaInicio = DateTime.Today.AddDays(-30);
-        DateTime fechaFin = DateTime.Now;
-        DateTime fechaInicioPrevio = fechaInicio.AddDays(-30);
+        // 1. Rango de fechas
+        DateTime fechaInicio;
+        DateTime fechaFin;
+        DateTime fechaInicioPrevio;
 
-        if (periodo == "dia")
+        if (!string.IsNullOrWhiteSpace(inicio) && !string.IsNullOrWhiteSpace(fin))
         {
-            fechaInicio = DateTime.Today;
-            fechaInicioPrevio = fechaInicio.AddDays(-1);
+            if (!DateTime.TryParseExact(inicio, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var inicioParsed)
+                || !DateTime.TryParseExact(fin, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var finParsed))
+            {
+                return BadRequest(new { mensaje = "Fechas inválidas. Use el formato YYYY-MM-DD." });
+            }
+
+            fechaInicio = inicioParsed.Date;
+            fechaFin = finParsed.Date.AddDays(1).AddTicks(-1); // Incluir todo el día de fin
+            var duracion = fechaFin - fechaInicio;
+            fechaInicioPrevio = fechaInicio.Add(-duracion);
         }
-        else if (periodo == "semana")
+        else if (periodo == "custom")
         {
-            fechaInicio = DateTime.Today.AddDays(-7);
-            fechaInicioPrevio = fechaInicio.AddDays(-7);
+            // Si se solicitó filtro personalizado sin fechas válidas,
+            // retornamos datos vacíos en lugar de usar el periodo por defecto.
+            return Ok(new StatsResponseDto
+            {
+                Globales = new GlobalStatsDto(),
+                PorZona = new List<ZonaStatsDto>(),
+                PorTipo = new List<TipoStatsDto>(),
+                PorHora = Enumerable.Range(0, 24)
+                    .Select(h => new HoraStatsDto { Hora = $"{h:D2}:00", Total = 0 })
+                    .ToList()
+            });
+        }
+        else
+        {
+            // Periodos predefinidos
+            fechaFin = DateTime.Now;
+            fechaInicio = periodo switch
+            {
+                "dia" => DateTime.Today,
+                "semana" => DateTime.Today.AddDays(-7),
+                _ => DateTime.Today.AddDays(-30),
+            };
+            fechaInicioPrevio = fechaInicio.AddDays(-(fechaFin - fechaInicio).TotalDays);
         }
 
-        // 2. Traer incidentes de la BD (solo los del rango)
+        // 2. Traer incidentes de la BD
         var incidentesActuales = await _context.Incidentes
             .Include(i => i.Zona)
             .Where(i => i.FechaReporte >= fechaInicio && i.FechaReporte <= fechaFin)
@@ -355,4 +385,3 @@ public class IncidentsController : ControllerBase
         return Ok(response);
     }
 }
-
