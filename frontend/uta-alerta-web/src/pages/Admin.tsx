@@ -5,6 +5,7 @@ const DashboardPanel = lazy(() => import('../components/DashboardPanel'));
 const MapComponent = lazy(() => import('../components/MapComponent'));
 const CamerasPanel = lazy(() => import('../components/CamerasPanel'));
 const CustomersPanel = lazy(() => import('../components/CustomersPanel'));
+const UsersPanel = lazy(() => import('../components/UsersPanel'));
 import type { AlertaIncidente } from '../services/signalrService';
 import type { Zona } from '../services/zonasService';
 import './Admin.css';
@@ -18,7 +19,7 @@ const Admin = () => {
   const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers'>('dashboard');
+  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers' | 'usuarios'>('dashboard');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
   const [incidenteFoco, setIncidenteFoco] = useState<AlertaIncidente | null>(null);
 
@@ -187,6 +188,16 @@ const Admin = () => {
             </span>
             Customers
           </button>
+
+          <button
+            className={`nav-item ${seccion === 'usuarios' ? 'activo' : ''}`}
+            onClick={() => setSeccion('usuarios')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            Usuarios
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -213,12 +224,9 @@ const Admin = () => {
             {seccion === 'dashboard' && 'Dashboard y Estadísticas'}
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
-            {seccion === 'camaras' && (
-              <>
-                Administración de Cámaras
-              </>
-            )}
+            {seccion === 'camaras' && 'Administración de Cámaras'}
             {seccion === 'customers' && 'Customers'}
+            {seccion === 'usuarios' && 'Gestión de Usuarios'}
           </h1>
 
           <div className="topbar-right">
@@ -339,6 +347,12 @@ const Admin = () => {
           {seccion === 'customers' && (
             <Suspense fallback={<div className="loading-panel">Cargando clientes...</div>}>
               <CustomersPanel />
+            </Suspense>
+          )}
+
+          {seccion === 'usuarios' && (
+            <Suspense fallback={<div className="loading-panel">Cargando gestión de usuarios...</div>}>
+              <UsersPanel />
             </Suspense>
           )}
 
