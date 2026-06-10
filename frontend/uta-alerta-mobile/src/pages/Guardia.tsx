@@ -21,7 +21,7 @@ import {
   IonBadge,
 } from '@ionic/react';
 import { menuOutline, personCircleOutline, closeOutline, shieldCheckmarkOutline } from 'ionicons/icons';
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation, type Position } from '@capacitor/geolocation';
 import './Guardia.css';
 import * as signalR from '@microsoft/signalr';
 import L from 'leaflet';
@@ -432,7 +432,7 @@ const Guardia: React.FC = () => {
             timeout: 30000, // Más tiempo para lugares cerrados
             maximumAge: 10000 // Aceptar ubicaciones de hace 10s
           },
-          (position, err) => {
+          (position: Position | null, err?: any) => {
             if (err) {
               console.error("Error de geolocalización Capacitor:", err);
               // Solo mostrar error si es muy grave, para no ser molesto.
