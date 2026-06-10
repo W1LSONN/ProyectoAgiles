@@ -36,6 +36,12 @@ public class Incidente
 
     public DateTime? FechaCierre { get; set; }
 
+    [Column(TypeName = "decimal(10,7)")]
+    public decimal? Latitud { get; set; }
+
+    [Column(TypeName = "decimal(10,7)")]
+    public decimal? Longitud { get; set; }
+
     // Navegación
     [ForeignKey("IdZona")]
     public Zona Zona { get; set; } = null!;

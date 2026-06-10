@@ -21,4 +21,7 @@ public class CrearIncidenteRequest
 
     [MaxLength(500, ErrorMessage = "La descripción no puede exceder 500 caracteres.")]
     public string? Descripcion { get; set; }
+
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
 }

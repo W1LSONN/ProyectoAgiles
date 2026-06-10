@@ -35,7 +35,12 @@ public class GruposController : ControllerBase
             descripcion = g.Descripcion,
             idCreador = g.IdCreador,
             fechaCreacion = g.FechaCreacion,
-            cantidadMiembros = g.Miembros.Count
+            cantidadMiembros = g.Miembros.Count,
+            miembros = g.Miembros.Select(m => new {
+                idUsuarioGrupo = m.IdUsuarioGrupo,
+                idUsuario = m.IdUsuario,
+                fechaUnion = m.FechaUnion
+            }).ToList()
         }).ToListAsync();
 
         return Ok(grupos);

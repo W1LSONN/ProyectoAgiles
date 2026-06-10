@@ -11,21 +11,32 @@ import '@ionic/react/css/typography.css';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import Guardia from './pages/Guardia';
+import Historial from './pages/Historial';
 
 setupIonicReact();
 
+import ErrorBoundary from './components/ErrorBoundary';
+
+import Menu from './components/Menu';
+import Grupos from './pages/Grupos';
+
 const App: React.FC = () => (
   <IonApp>
-    <IonReactRouter>
-      <IonRouterOutlet>
-        <Route exact path="/login" component={Login} />
-        <Route exact path="/home" component={Home} />
-        <Route exact path="/guardia" component={Guardia} />
-        <Route exact path="/">
-          <Redirect to="/login" />
-        </Route>
-      </IonRouterOutlet>
-    </IonReactRouter>
+    <ErrorBoundary>
+      <IonReactRouter>
+        <Menu />
+        <IonRouterOutlet id="main-content">
+          <Route exact path="/login" component={Login} />
+          <Route exact path="/home" component={Home} />
+          <Route exact path="/guardia" component={Guardia} />
+          <Route exact path="/historial" component={Historial} />
+          <Route exact path="/grupos" component={Grupos} />
+          <Route exact path="/">
+            <Redirect to="/login" />
+          </Route>
+        </IonRouterOutlet>
+      </IonReactRouter>
+    </ErrorBoundary>
   </IonApp>
 );
 

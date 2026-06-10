@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
-import MapComponent from '../components/MapComponent';
-import CamerasPanel from '../components/CamerasPanel';
+const DashboardPanel = lazy(() => import('../components/DashboardPanel'));
+const MapComponent = lazy(() => import('../components/MapComponent'));
+const CamerasPanel = lazy(() => import('../components/CamerasPanel'));
+const CustomersPanel = lazy(() => import('../components/CustomersPanel'));
+const UsersPanel = lazy(() => import('../components/UsersPanel'));
 import type { AlertaIncidente } from '../services/signalrService';
 import type { Zona } from '../services/zonasService';
 import './Admin.css';
@@ -13,12 +16,31 @@ const INCIDENTS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:500
 const Admin = () => {
   const navigate = useNavigate();
   const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-  const { alertas: alertasWS, error } = useSignalR('Admins');
+  const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'notificaciones' | 'mapa' | 'camaras' | 'customers'>('notificaciones');
+  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers' | 'usuarios'>('dashboard');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
-  const [asumiendoId, setAsumiendoId] = useState<number | null>(null);
+  const [incidenteFoco, setIncidenteFoco] = useState<AlertaIncidente | null>(null);
+
+  const [toasts, setToasts] = useState<{ id: number; data: AlertaIncidente }[]>([]);
+
+  const handleNewAlerta = useCallback((alerta: AlertaIncidente) => {
+    console.log("Disparando toast para nuevo incidente:", alerta);
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, data: alerta }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 6000);
+  }, []);
+
+  const handleToastClick = (toastId: number, alerta: AlertaIncidente) => {
+    setSeccion('mapa');
+    setIncidenteFoco(alerta);
+    setToasts(prev => prev.filter(t => t.id !== toastId));
+  };
+
+  const { alertas: alertasWS, error } = useSignalR('Admins', handleNewAlerta);
 
   const cargarIncidentes = async () => {
     const response = await fetch(`${INCIDENTS_URL}/api/incidents`);
@@ -48,50 +70,12 @@ const Admin = () => {
 
   // Cargar incidentes existentes desde la BD al abrir la página
   useEffect(() => {
-    cargarIncidentes().catch(() => console.warn('IncidentService no disponible (puerto 5008)'));
+    cargarIncidentes().catch((e) => {
+      // Mostrar banner de error y escribir en consola
+      console.warn('IncidentService no disponible (puerto 5008)', e);
+      setIncidentesError('IncidentService no disponible (puerto 5008)');
+    });
   }, []);
-
-  const asumirIncidente = async (incidente: AlertaIncidente) => {
-    if (asumiendoId === incidente.idIncidente || incidente.estado?.toLowerCase() === 'asumido') {
-      return;
-    }
-
-    setAsumiendoId(incidente.idIncidente);
-
-    try {
-      const response = await fetch(`${INCIDENTS_URL}/api/incidents/${incidente.idIncidente}/asignar`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${usuario.token}`,
-        },
-        body: JSON.stringify({
-          guardiaAsignado: usuario.nombre || 'Guardia asignado'
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err?.mensaje ?? `Error ${response.status} al asumir el incidente`);
-      }
-
-      const data = await response.json();
-      setIncidentesDB((prev) => prev.map((item) => (
-        item.idIncidente === incidente.idIncidente
-          ? {
-              ...item,
-              estado: data.estado ?? 'Asumido',
-              guardiaAsignado: data.guardiaAsignado ?? usuario.nombre
-            }
-          : item
-      )));
-    } catch (err) {
-      console.error(err);
-      await cargarIncidentes();
-    } finally {
-      setAsumiendoId(null);
-    }
-  };
 
   // Unir datos de BD + nuevas alertas SignalR (las nuevas van primero)
   const alertas = [
@@ -156,6 +140,16 @@ const Admin = () => {
 
         <nav className="sidebar-nav">
           <button
+            className={`nav-item ${seccion === 'dashboard' ? 'activo' : ''}`}
+            onClick={() => setSeccion('dashboard')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+            </span>
+            Dashboard
+          </button>
+
+          <button
             className={`nav-item ${seccion === 'mapa' ? 'activo' : ''}`}
             onClick={() => setSeccion('mapa')}
           >
@@ -194,6 +188,16 @@ const Admin = () => {
             </span>
             Customers
           </button>
+
+          <button
+            className={`nav-item ${seccion === 'usuarios' ? 'activo' : ''}`}
+            onClick={() => setSeccion('usuarios')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </span>
+            Usuarios
+          </button>
         </nav>
 
         <div className="sidebar-footer">
@@ -217,17 +221,12 @@ const Admin = () => {
         {/* TOPBAR */}
         <div className="admin-topbar">
           <h1 className="admin-titulo">
+            {seccion === 'dashboard' && 'Dashboard y Estadísticas'}
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
-            {seccion === 'camaras' && (
-              <>
-                Administración de Cámaras
-                <span style={{ fontSize: '0.85rem', color: '#666', marginLeft: '10px', fontWeight: 'normal' }}>
-                  (listado con datos simulados de prueba para cuando backend este listo)
-                </span>
-              </>
-            )}
+            {seccion === 'camaras' && 'Administración de Cámaras'}
             {seccion === 'customers' && 'Customers'}
+            {seccion === 'usuarios' && 'Gestión de Usuarios'}
           </h1>
 
           <div className="topbar-right">
@@ -251,10 +250,16 @@ const Admin = () => {
         </div>
 
 
-        {error && <div className="error-banner">{error}</div>}
+        {(error || incidentesError) && <div className="error-banner">{error || incidentesError}</div>}
 
         {/* CONTENIDO */}
         <div className="content-card">
+
+          {seccion === 'dashboard' && (
+            <Suspense fallback={<div className="loading-panel">Cargando panel...</div>}>
+              <DashboardPanel />
+            </Suspense>
+          )}
 
           {seccion === 'notificaciones' && (
             <>
@@ -270,13 +275,12 @@ const Admin = () => {
                       <th>Fecha y hora</th>
                       <th>Estado</th>
                       <th>Guardia asignado</th>
-                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alertasPagina.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="tabla-vacia">
+                        <td colSpan={8} className="tabla-vacia">
                           Sin incidentes registrados. Esperando alertas en tiempo real...
                         </td>
                       </tr>
@@ -295,15 +299,6 @@ const Admin = () => {
                             <td className="td-fecha">{formatFecha(a.fechaReporte)}</td>
                             <td><span className={asumido ? 'badge-asumido' : 'badge-activo'}>{estado}</span></td>
                             <td className="td-guardia">{(a as any).guardiaAsignado ?? '—'}</td>
-                            <td className="td-acciones">
-                              <button
-                                className="btn-asumir"
-                                onClick={() => asumirIncidente(a)}
-                                disabled={asumido || asumiendoId === a.idIncidente}
-                              >
-                                {asumiendoId === a.idIncidente ? 'Asumiendo...' : asumido ? 'Asumido' : 'Asumir'}
-                              </button>
-                            </td>
                           </tr>
                         );
                       })
@@ -334,25 +329,50 @@ const Admin = () => {
           )}
 
           {seccion === 'mapa' && (
-            <MapComponent 
-              incidentes={alertas}
-              onZonaSeleccionada={setZonaSeleccionada}
-            />
+            <Suspense fallback={<div className="loading-panel">Cargando mapa...</div>}>
+              <MapComponent 
+                incidentes={alertas}
+                onZonaSeleccionada={setZonaSeleccionada}
+                focoIncidente={incidenteFoco}
+              />
+            </Suspense>
           )}
 
           {seccion === 'camaras' && (
-            <CamerasPanel />
+            <Suspense fallback={<div className="loading-panel">Cargando cámaras...</div>}>
+              <CamerasPanel />
+            </Suspense>
           )}
 
           {seccion === 'customers' && (
-            <div className="seccion-placeholder">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-              <p>Gestión de usuarios — próximamente</p>
-            </div>
+            <Suspense fallback={<div className="loading-panel">Cargando clientes...</div>}>
+              <CustomersPanel />
+            </Suspense>
+          )}
+
+          {seccion === 'usuarios' && (
+            <Suspense fallback={<div className="loading-panel">Cargando gestión de usuarios...</div>}>
+              <UsersPanel />
+            </Suspense>
           )}
 
         </div>
       </main>
+
+      {/* ── TOASTS DE NOTIFICACIÓN FLOTANTES ── */}
+      <div className="toast-container">
+        {toasts.map(toast => (
+          <div key={toast.id} className="toast-notification" onClick={() => handleToastClick(toast.id, toast.data)}>
+            <div className="toast-icon">🚨</div>
+            <div className="toast-content">
+              <h4>Nuevo Incidente: {toast.data.tipoIncidente}</h4>
+              <p>{toast.data.facultad} - {toast.data.zona}</p>
+              <small>{toast.data.mensaje}</small>
+            </div>
+            <button className="toast-close" onClick={(e) => { e.stopPropagation(); setToasts(prev => prev.filter(t => t.id !== toast.id)); }}>×</button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

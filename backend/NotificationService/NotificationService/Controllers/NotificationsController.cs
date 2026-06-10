@@ -40,8 +40,12 @@ public class NotificationsController : ControllerBase
             Facultad      = request.Facultad,
             Zona          = request.Zona,
             TipoIncidente = request.TipoIncidente,
-            Mensaje       = $"🚨 Nuevo incidente: {request.TipoIncidente} en {request.Zona}",
-            FechaReporte  = request.FechaReporte
+            Mensaje       = $"🚨 Incidente {request.TipoIncidente} en {request.Zona} (Estado: {request.Estado ?? "Activo"})",
+            FechaReporte  = request.FechaReporte,
+            Latitud       = request.Latitud,
+            Longitud      = request.Longitud,
+            Estado        = request.Estado ?? "Activo",
+            GuardiaAsignado = request.GuardiaAsignado
         };
 
         // Enviar a Guardias
@@ -51,8 +55,8 @@ public class NotificationsController : ControllerBase
         await _hubContext.Clients.Group("Admins").RecibirAlertaIncidente(alerta);
 
         _logger.LogInformation(
-            "Alerta SignalR enviada — Incidente #{IdIncidente}, Tipo: {Tipo}, Zona: {Zona}",
-            alerta.IdIncidente, alerta.TipoIncidente, alerta.Zona);
+            "Alerta SignalR enviada — Incidente #{IdIncidente}, Tipo: {Tipo}, Estado: {Estado}",
+            alerta.IdIncidente, alerta.TipoIncidente, alerta.Estado);
 
         return Ok(new { mensaje = "Alerta enviada a Guardias y Admins." });
     }
@@ -69,4 +73,8 @@ public class AlertaRequest
     public string Zona { get; set; } = string.Empty;
     public string TipoIncidente { get; set; } = string.Empty;
     public DateTime FechaReporte { get; set; }
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
+    public string? Estado { get; set; }
+    public string? GuardiaAsignado { get; set; }
 }

@@ -12,4 +12,8 @@ public class AlertaNotificacionDto
     public string Zona { get; set; } = string.Empty;
     public string TipoIncidente { get; set; } = string.Empty;
     public DateTime FechaReporte { get; set; }
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
+    public string? Estado { get; set; }
+    public string? GuardiaAsignado { get; set; }
 }

@@ -265,3 +265,71 @@
 .incidente-item {
   animation: pulse-marker 0.5s ease-in-out;
 }
+
+@keyframes map-marker-pulsate {
+  0% {
+    filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.8)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(255, 0, 0, 1)) brightness(1.3);
+  }
+  100% {
+    filter: drop-shadow(0 0 5px rgba(255, 0, 0, 0.8)) brightness(1);
+  }
+}
+
+.pulsating-incident {
+  animation: map-marker-pulsate 1.5s infinite ease-in-out;
+}
+
+/* Estilos del marcador de CCTV */
+.cctv-marker {
+  /* Elimina el fondo y borde por defecto de Leaflet para los divIcon */
+  background-color: transparent;
+  border: none;
+}
+
+/* Estilos del marcador de guardia */
+.guard-marker {
+  background-color: transparent;
+  border: none;
+}
+
+/* Estilos para los clusters de guardias (leaflet.markercluster) */
+.marker-cluster-small {
+	background-color: rgba(41, 128, 185, 0.6);
+}
+.marker-cluster-small div {
+	background-color: rgba(52, 152, 219, 0.9);
+}
+
+.marker-cluster-medium {
+	background-color: rgba(241, 196, 15, 0.6);
+}
+.marker-cluster-medium div {
+	background-color: rgba(243, 156, 18, 0.9);
+}
+
+.marker-cluster-large {
+	background-color: rgba(231, 76, 60, 0.6);
+}
+.marker-cluster-large div {
+	background-color: rgba(192, 57, 43, 0.9);
+}
+
+.marker-cluster {
+	color: #fff;
+	border-radius: 50%;
+	text-align: center;
+	font-weight: bold;
+	line-height: 30px;
+	font-size: 14px;
+}
+
+.marker-cluster div {
+	width: 30px;
+	height: 30px;
+	margin-left: 5px;
+	margin-top: 5px;
+	border-radius: 50%;
+}

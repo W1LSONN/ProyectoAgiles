@@ -6,8 +6,7 @@
   gap: 32px;
   padding: 24px;
   background-color: #ffffff;
-  height: 100%;
-  overflow-y: auto;
+  flex: 1 0 auto;
 }
 
 /* ══════════════════════════════════════
@@ -179,6 +178,9 @@
 ══════════════════════════════════════ */
 
 .cameras-table-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
   background: white;
   border: 1px solid #e8e8e6;
   border-radius: 12px;
@@ -193,6 +195,8 @@
   padding: 20px;
   border-bottom: 1px solid #f0f0ee;
   background-color: #fafaf9;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .section-header h2 {
@@ -208,6 +212,70 @@
 .section-header h2::before {
   content: '📹';
   font-size: 18px;
+}
+
+/* ══════════════════════════════════════
+   ZONE FILTER
+══════════════════════════════════════ */
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filtro-zona-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  padding: 6px 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.filtro-zona-container:focus-within {
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.filtro-zona-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  white-space: nowrap;
+}
+
+.filtro-zona-select {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  background-color: transparent;
+  color: #1a1a1a;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  min-width: 140px;
+}
+
+.filtro-zona-select:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.filtro-zona-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 
 /* ══════════════════════════════════════

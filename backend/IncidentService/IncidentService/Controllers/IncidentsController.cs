@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using IncidentService.Data;
@@ -44,7 +45,9 @@ public class IncidentsController : ControllerBase
             Descripcion   = request.Descripcion,
             Estado        = "Activo",
             GuardiaAsignado = null,
-            FechaReporte  = DateTime.Now
+            FechaReporte  = DateTime.Now,
+            Latitud       = request.Latitud,
+            Longitud      = request.Longitud
         };
 
         _context.Incidentes.Add(nuevoIncidente);
@@ -59,7 +62,9 @@ public class IncidentsController : ControllerBase
             Facultad      = zona?.Nombre ?? "UTA",
             Zona          = zona?.Nombre ?? $"Zona {nuevoIncidente.IdZona}",
             TipoIncidente = nuevoIncidente.TipoIncidente,
-            FechaReporte  = nuevoIncidente.FechaReporte
+            FechaReporte  = nuevoIncidente.FechaReporte,
+            Latitud       = nuevoIncidente.Latitud,
+            Longitud      = nuevoIncidente.Longitud
         });
 
         
@@ -100,9 +105,35 @@ public class IncidentsController : ControllerBase
             return NotFound(new { mensaje = $"Incidente {id} no encontrado." });
         }
 
+        if (incidente.Estado == "Asumido")
+        {
+            return BadRequest(new { mensaje = "El incidente ya ha sido asumido por otro guardia." });
+        }
+
+        if (incidente.Estado == "Cerrado")
+        {
+            return BadRequest(new { mensaje = "El incidente ya se encuentra cerrado." });
+        }
+
         incidente.GuardiaAsignado = request.GuardiaAsignado.Trim();
         incidente.Estado = "Asumido";
         await _context.SaveChangesAsync();
+
+        // Notificar a todos por SignalR en tiempo real que el estado cambió
+        var zona = await _context.Zonas.FindAsync(incidente.IdZona);
+        await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
+        {
+            IdIncidente   = incidente.IdIncidente,
+            NombreUsuario = $"Usuario #{incidente.IdUsuario}",
+            Facultad      = zona?.Nombre ?? "UTA",
+            Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
+            TipoIncidente = incidente.TipoIncidente,
+            FechaReporte  = incidente.FechaReporte,
+            Latitud       = incidente.Latitud,
+            Longitud      = incidente.Longitud,
+            Estado        = incidente.Estado,
+            GuardiaAsignado = incidente.GuardiaAsignado
+        });
 
         return Ok(new
         {
@@ -128,30 +159,64 @@ public class IncidentsController : ControllerBase
         {
             idIncidente   = incidente.IdIncidente,
             idUsuario     = incidente.IdUsuario,
-            zona          = incidente.Zona.Nombre,
+            zona          = incidente.Zona?.Nombre ?? "Desconocida",
             tipoIncidente = incidente.TipoIncidente,
             descripcion   = incidente.Descripcion,
             estado        = incidente.Estado,
             guardiaAsignado = incidente.GuardiaAsignado,
-            fechaReporte  = incidente.FechaReporte
+            fechaReporte  = incidente.FechaReporte,
+            latitud       = incidente.Latitud,
+            longitud      = incidente.Longitud
         });
     }
 
     [HttpGet]
-    public async Task<IActionResult> ListarIncidentes()
+    public async Task<IActionResult> ListarIncidentes([FromQuery] string? estado)
     {
-        var incidentes = await _context.Incidentes
-            .Include(i => i.Zona)
+        var query = _context.Incidentes.Include(i => i.Zona).AsQueryable();
+
+        if (!string.IsNullOrEmpty(estado))
+        {
+            query = query.Where(i => i.Estado == estado);
+        }
+
+        var incidentes = await query
             .OrderByDescending(i => i.FechaReporte)
             .Select(i => new
             {
                 idIncidente   = i.IdIncidente,
                 idUsuario     = i.IdUsuario,
-                zona          = i.Zona.Nombre,
+                zona          = i.Zona != null ? i.Zona.Nombre : "Desconocida",
                 tipoIncidente = i.TipoIncidente,
                 estado        = i.Estado,
                 guardiaAsignado = i.GuardiaAsignado,
-                fechaReporte  = i.FechaReporte
+                fechaReporte  = i.FechaReporte,
+                latitud       = i.Latitud,
+                longitud      = i.Longitud
+            })
+            .ToListAsync();
+
+        return Ok(incidentes);
+    }
+
+    [HttpGet("usuario/{idUsuario}")]
+    public async Task<IActionResult> ObtenerIncidentesPorUsuario(int idUsuario)
+    {
+        var incidentes = await _context.Incidentes
+            .Where(i => i.IdUsuario == idUsuario)
+            .OrderByDescending(i => i.FechaReporte)
+            .Select(i => new
+            {
+                idIncidente = i.IdIncidente,
+                idUsuario = i.IdUsuario,
+                idZona = i.IdZona,
+                tipoIncidente = i.TipoIncidente,
+                estado = i.Estado,
+                fechaReporte = i.FechaReporte,
+                mensaje = i.Descripcion,
+                descripcion = i.Descripcion,
+                latitud = i.Latitud,
+                longitud = i.Longitud
             })
             .ToListAsync();
 
@@ -184,8 +249,21 @@ public class IncidentsController : ControllerBase
         {
             await _context.SaveChangesAsync();
 
-            // NOTA: Aquí posteriormente Christopher agregará la lógica de SignalR
-            // para notificar a los demás guardias que el incidente desaparece de su lista.
+            // Notificar a todos por SignalR en tiempo real que el incidente se cerró
+            var zona = await _context.Zonas.FindAsync(incidente.IdZona);
+            await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
+            {
+                IdIncidente   = incidente.IdIncidente,
+                NombreUsuario = $"Usuario #{incidente.IdUsuario}",
+                Facultad      = zona?.Nombre ?? "UTA",
+                Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
+                TipoIncidente = incidente.TipoIncidente,
+                FechaReporte  = incidente.FechaReporte,
+                Latitud       = incidente.Latitud,
+                Longitud      = incidente.Longitud,
+                Estado        = incidente.Estado,
+                GuardiaAsignado = incidente.GuardiaAsignado
+            });
 
             return Ok(new
             {
@@ -197,5 +275,113 @@ public class IncidentsController : ControllerBase
         {
             return StatusCode(500, new { mensaje = "Error al cerrar el incidente", detalle = ex.Message });
         }
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo, [FromQuery] string? inicio, [FromQuery] string? fin)
+    {
+        // 1. Rango de fechas
+        DateTime fechaInicio;
+        DateTime fechaFin;
+        DateTime fechaInicioPrevio;
+
+        if (!string.IsNullOrWhiteSpace(inicio) && !string.IsNullOrWhiteSpace(fin))
+        {
+            if (!DateTime.TryParseExact(inicio, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var inicioParsed)
+                || !DateTime.TryParseExact(fin, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var finParsed))
+            {
+                return BadRequest(new { mensaje = "Fechas inválidas. Use el formato YYYY-MM-DD." });
+            }
+
+            fechaInicio = inicioParsed.Date;
+            fechaFin = finParsed.Date.AddDays(1).AddTicks(-1); // Incluir todo el día de fin
+            var duracion = fechaFin - fechaInicio;
+            fechaInicioPrevio = fechaInicio.Add(-duracion);
+        }
+        else if (periodo == "custom")
+        {
+            // Si se solicitó filtro personalizado sin fechas válidas,
+            // retornamos datos vacíos en lugar de usar el periodo por defecto.
+            return Ok(new StatsResponseDto
+            {
+                Globales = new GlobalStatsDto(),
+                PorZona = new List<ZonaStatsDto>(),
+                PorTipo = new List<TipoStatsDto>(),
+                PorHora = Enumerable.Range(0, 24)
+                    .Select(h => new HoraStatsDto { Hora = $"{h:D2}:00", Total = 0 })
+                    .ToList()
+            });
+        }
+        else
+        {
+            // Periodos predefinidos
+            fechaFin = DateTime.Now;
+            fechaInicio = periodo switch
+            {
+                "dia" => DateTime.Today,
+                "semana" => DateTime.Today.AddDays(-7),
+                _ => DateTime.Today.AddDays(-30),
+            };
+            fechaInicioPrevio = fechaInicio.AddDays(-(fechaFin - fechaInicio).TotalDays);
+        }
+
+        // 2. Traer incidentes de la BD
+        var incidentesActuales = await _context.Incidentes
+            .Include(i => i.Zona)
+            .Where(i => i.FechaReporte >= fechaInicio && i.FechaReporte <= fechaFin)
+            .ToListAsync();
+
+        var incidentesPrevios = await _context.Incidentes
+            .Where(i => i.FechaReporte >= fechaInicioPrevio && i.FechaReporte < fechaInicio)
+            .ToListAsync();
+
+        // 3. Procesar Globales
+        var totales = new GlobalStatsDto
+        {
+            Total = incidentesActuales.Count,
+            Activos = incidentesActuales.Count(i => i.Estado == "Activo"),
+            Asumidos = incidentesActuales.Count(i => i.Estado == "Asumido"),
+            Cerrados = incidentesActuales.Count(i => i.Estado == "Cerrado"),
+            Prev_total = incidentesPrevios.Count,
+            Prev_activos = incidentesPrevios.Count(i => i.Estado == "Activo")
+        };
+
+        // 4. Procesar Por Zona
+        var porZona = incidentesActuales
+            .Where(i => i.Zona != null)
+            .GroupBy(i => i.Zona.Nombre)
+            .Select(g => new ZonaStatsDto { Nombre = g.Key, Total = g.Count() })
+            .OrderByDescending(z => z.Total)
+            .ToList();
+
+        // 5. Procesar Por Tipo
+        var porTipo = incidentesActuales
+            .GroupBy(i => i.TipoIncidente)
+            .Select(g => new TipoStatsDto { Nombre = g.Key, Valor = g.Count() })
+            .OrderByDescending(t => t.Valor)
+            .ToList();
+
+        // 6. Procesar Por Hora (24 horas)
+        var horasDelDia = Enumerable.Range(0, 24).Select(h => $"{h:D2}:00").ToList();
+        var conteoPorHora = incidentesActuales
+            .GroupBy(i => i.FechaReporte.Hour)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var porHora = horasDelDia.Select((horaStr, index) => new HoraStatsDto
+        {
+            Hora = horaStr,
+            Total = conteoPorHora.ContainsKey(index) ? conteoPorHora[index] : 0
+        }).ToList();
+
+        // 7. Retornar DTO al frontend
+        var response = new StatsResponseDto
+        {
+            Globales = totales,
+            PorZona = porZona,
+            PorTipo = porTipo,
+            PorHora = porHora
+        };
+
+        return Ok(response);
     }
 }

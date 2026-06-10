@@ -1,11 +1,13 @@
-// URL del IncidentService desde las variables de entorno
-const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+
+const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://192.168.100.83:5008';
 
 export interface CrearIncidentePayload {
     idUsuario: number;
     idZona: number;
     tipoIncidente: string;
     descripcion?: string;
+    latitud?: number;
+    longitud?: number;
 }
 
 export interface IncidenteCreado {
@@ -16,6 +18,44 @@ export interface IncidenteCreado {
     estado: string;
     fechaReporte: string;
     mensaje: string;
+    latitud?: number;
+    longitud?: number;
+}
+
+export interface IncidenteResumen {
+    idIncidente: number;
+    idUsuario: number;
+    idZona: number;
+    tipoIncidente: string;
+    estado: string;
+    fechaReporte: string;
+    mensaje: string;
+    descripcion?: string;
+    latitud?: number;
+    longitud?: number;
+}
+
+/**
+ * Llama a GET /api/incidents/usuario/{id} para obtener el historial del usuario.
+ * Lanza un Error si la respuesta no es 2xx.
+ */
+export async function obtenerIncidentesPorUsuario(
+    idUsuario: number,
+    token: string
+): Promise<IncidenteResumen[]> {
+    const response = await fetch(`${INCIDENT_URL}/api/incidents/usuario/${idUsuario}`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.mensaje ?? `Error ${response.status} al obtener el historial`);
+    }
+
+    return response.json();
 }
 
 /**

@@ -36,6 +36,21 @@ const Guardia = () => {
               <p style={{ margin: 0, color: '#444', fontSize: '0.88rem' }}>
                 <strong>{a.nombreUsuario}</strong> — {a.facultad}
               </p>
+              {(a.rol || a.carrera) && (
+                <p style={{ margin: '4px 0 0', color: '#555', fontSize: '0.82rem' }}>
+                  {a.rol && (
+                    <>
+                      Rol: <strong>{a.rol}</strong>
+                    </>
+                  )}
+                  {a.rol && a.carrera ? ' · ' : ''}
+                  {a.carrera && (
+                    <>
+                      Carrera: <strong>{a.carrera}</strong>
+                    </>
+                  )}
+                </p>
+              )}
               <p style={{ margin: '4px 0 0', color: '#666', fontSize: '0.82rem' }}>
                 📍 {a.zona}
               </p>
