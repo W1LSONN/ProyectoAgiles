@@ -33,6 +33,7 @@ export interface ReporteGuardia {
     zona: string;
     horaIncidente: string;
     fechaCreacion: string;
+    estado?: string;
 }
 
 class SignalRService {
