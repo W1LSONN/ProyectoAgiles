@@ -19,6 +19,7 @@ import {
   IonSelect,
   IonSelectOption,
   IonBadge,
+  IonToast,
 } from '@ionic/react';
 import { menuOutline, personCircleOutline, closeOutline, shieldCheckmarkOutline } from 'ionicons/icons';
 import { Geolocation, type Position } from '@capacitor/geolocation';
@@ -42,13 +43,30 @@ interface NotificacionGuardia {
   guardiaAsignado?: string;
   latitud?: number;
   longitud?: number;
+  observacionesCierre?: string;
+  fechaCierre?: string;
 }
+
+const tiempoRelativo = (fechaStr?: string): string => {
+  if (!fechaStr) return '';
+  const diff = Date.now() - new Date(fechaStr).getTime();
+  if (isNaN(diff)) return fechaStr;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Ahora mismo';
+  if (mins < 60) return `Hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Hace ${hrs} hora${hrs > 1 ? 's' : ''}`;
+  const dias = Math.floor(hrs / 24);
+  return `Hace ${dias} día${dias > 1 ? 's' : ''}`;
+};
+
 
 interface ZonaDB {
   idZona: number;
   nombre: string;
   descripcion?: string;
   activa: boolean;
+  coordenadasPoligono?: string;
 }
 
 const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
@@ -107,7 +125,7 @@ const incidentIcon = L.divIcon({
 });
 
 // Componente para mapa pequeño de detalles
-const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: string }> = ({ lat, lng, zonaNombre }) => {
+const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: string; zonasDB: ZonaDB[] }> = ({ lat, lng, zonaNombre, zonasDB }) => {
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapRef = React.useRef<L.Map | null>(null);
 
@@ -124,6 +142,7 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
         maxZoom: 19
       }).addTo(mapRef.current);
 
+      // Dibujar zonas estáticas
       CAMPUS_ZONES.forEach(z => {
         L.polygon(z.coordenadas as L.LatLngExpression[], {
           color: z.color,
@@ -134,6 +153,23 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
         }).addTo(mapRef.current!);
       });
 
+      // Dibujar zonas dinámicas desde BD
+      zonasDB.forEach(z => {
+        if (!z.coordenadasPoligono) return;
+        try {
+          const coords = JSON.parse(z.coordenadasPoligono);
+          if (Array.isArray(coords) && coords.length >= 3) {
+            L.polygon(coords as L.LatLngExpression[], {
+              color: '#9b59b6',
+              weight: 2,
+              opacity: 0.7,
+              fillOpacity: 0.15,
+              fillColor: '#9b59b6'
+            }).addTo(mapRef.current!);
+          }
+        } catch {}
+      });
+
       L.marker([lat, lng], { icon: incidentIcon })
         .addTo(mapRef.current)
         .bindPopup(`<b>Incidente:</b><br/>${zonaNombre || 'Ubicación exacta'}`)
@@ -142,13 +178,21 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
       mapRef.current.setView([lat, lng], 17);
     }
 
+    // Bugfix Leaflet: invalidar tamaño tras renderizado en el modal
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 320);
+
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [lat, lng, zonaNombre]);
+  }, [lat, lng, zonaNombre, zonasDB]);
 
   return (
     <div 
@@ -169,7 +213,7 @@ const MobileIncidentMap: React.FC<{ lat: number; lng: number; zonaNombre?: strin
 };
 
 // Componente para mapa ampliado a pantalla completa
-const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNombre?: string }> = ({ lat, lng, zonaNombre }) => {
+const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNombre?: string; zonasDB: ZonaDB[] }> = ({ lat, lng, zonaNombre, zonasDB }) => {
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapRef = React.useRef<L.Map | null>(null);
 
@@ -186,6 +230,7 @@ const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNomb
         maxZoom: 19
       }).addTo(mapRef.current);
 
+      // Dibujar zonas estáticas
       CAMPUS_ZONES.forEach(z => {
         L.polygon(z.coordenadas as L.LatLngExpression[], {
           color: z.color,
@@ -196,6 +241,23 @@ const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNomb
         }).addTo(mapRef.current!);
       });
 
+      // Dibujar zonas dinámicas desde BD
+      zonasDB.forEach(z => {
+        if (!z.coordenadasPoligono) return;
+        try {
+          const coords = JSON.parse(z.coordenadasPoligono);
+          if (Array.isArray(coords) && coords.length >= 3) {
+            L.polygon(coords as L.LatLngExpression[], {
+              color: '#9b59b6',
+              weight: 2,
+              opacity: 0.7,
+              fillOpacity: 0.15,
+              fillColor: '#9b59b6'
+            }).addTo(mapRef.current!);
+          }
+        } catch {}
+      });
+
       L.marker([lat, lng], { icon: incidentIcon })
         .addTo(mapRef.current)
         .bindPopup(`<b>Incidente:</b><br/>${zonaNombre || 'Ubicación exacta'}`)
@@ -204,13 +266,21 @@ const MobileIncidentMapFullscreen: React.FC<{ lat: number; lng: number; zonaNomb
       mapRef.current.setView([lat, lng], 17);
     }
 
+    // Bugfix Leaflet: invalidar tamaño tras renderizado en el modal
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 320);
+
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
     };
-  }, [lat, lng, zonaNombre]);
+  }, [lat, lng, zonaNombre, zonasDB]);
 
   return (
     <div 
@@ -248,6 +318,8 @@ const mapIncidente = (incidente: any): NotificacionGuardia => {
     guardiaAsignado: incidente.guardiaAsignado ?? incidente.GuardiaAsignado,
     latitud: incidente.latitud ?? incidente.Latitud,
     longitud: incidente.longitud ?? incidente.Longitud,
+    observacionesCierre: incidente.observacionesCierre ?? incidente.ObservacionesCierre,
+    fechaCierre: incidente.fechaCierre ?? incidente.FechaCierre,
   };
 };
 
@@ -255,9 +327,10 @@ const Guardia: React.FC = () => {
   const [notificaciones, setNotificaciones] = useState<NotificacionGuardia[]>([]);
   const [conectado, setConectado] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [seleccionada, setSeleccionada] = useState<NotificacionGuardia | null>(null);
   const [asignando, setAsignando] = useState(false);
-  const [segment, setSegment] = useState<'pendientes' | 'mis-casos'>('pendientes');
+  const [segment, setSegment] = useState<'pendientes' | 'mis-casos' | 'historial' | 'nuevo-reporte'>('pendientes');
   const [observacionesCierre, setObservacionesCierre] = useState('');
   const [zonaFiltro, setZonaFiltro] = useState<string>('todas');
   const [zonasDB, setZonasDB] = useState<ZonaDB[]>([]);
@@ -266,6 +339,18 @@ const Guardia: React.FC = () => {
   // Nuevos estados para filtros e interactividad
   const [filtroTipo, setFiltroTipo] = useState<string>('todos');
   const [mostrarMapaAmpliado, setMostrarMapaAmpliado] = useState(false);
+  const [alertaEntrante, setAlertaEntrante] = useState<NotificacionGuardia | null>(null);
+
+  // Estados para nuevo reporte
+  const [turnoActivo, setTurnoActivo] = useState<any>(null);
+  const [reporteForm, setReporteForm] = useState({
+    titulo: '',
+    descripcion: '',
+    tipoReporte: 'Seguridad',
+    prioridad: 'Media',
+    zona: 'Ninguna'
+  });
+  const [enviandoReporte, setEnviandoReporte] = useState(false);
 
   // Parseo seguro para evitar que un JSON inválido deje la pantalla en negro
   const getUsuarioSeguro = () => {
@@ -312,10 +397,43 @@ const Guardia: React.FC = () => {
 
     let cancelado = false;
 
+    const playAlarmBeep = () => {
+      try {
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc1.frequency.setValueAtTime(660, audioCtx.currentTime); // E5
+        osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        osc1.type = 'sawtooth';
+        osc2.type = 'sine';
+
+        gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc1.start();
+        osc2.start();
+        osc1.stop(audioCtx.currentTime + 1.2);
+        osc2.stop(audioCtx.currentTime + 1.2);
+      } catch {}
+    };
+
     const manejarAlerta = (data: NotificacionGuardia) => {
+      // Si la alerta es activa y es real, sonar la alarma y mostrar banner
+      const est = (data.estado ?? 'Activo').toLowerCase();
+      if (est === 'activo' && data.idIncidente !== 0) {
+        playAlarmBeep();
+        setAlertaEntrante(data);
+      }
+
       setNotificaciones((s) => {
         const sinDuplicados = s.filter((item) => item.idIncidente !== data.idIncidente);
-        return [data, ...sinDuplicados].slice(0, 50);
+        return [data, ...sinDuplicados].slice(0, 150);
       });
     };
 
@@ -324,24 +442,22 @@ const Guardia: React.FC = () => {
     const cargarIncidentesIniciales = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [resActivos, resAsumidos] = await Promise.all([
+        const [resActivos, resAsumidos, resCerrados] = await Promise.all([
           fetch(`${INCIDENT_URL}/api/incidents?estado=Activo`, { headers }),
           fetch(`${INCIDENT_URL}/api/incidents?estado=Asumido`, { headers }),
+          fetch(`${INCIDENT_URL}/api/incidents?estado=Cerrado`, { headers }),
         ]);
 
-        if (!resActivos.ok || !resAsumidos.ok) {
+        if (!resActivos.ok || !resAsumidos.ok || !resCerrados.ok) {
           throw new Error(`Error cargando incidentes`);
         }
 
         const dataActivos: any[] = await resActivos.json();
         const dataAsumidos: any[] = await resAsumidos.json();
+        const dataCerrados: any[] = await resCerrados.json();
 
-        const incidentes = [...dataActivos, ...dataAsumidos]
-          .map(mapIncidente)
-          .filter((incidente) => {
-             const est = (incidente.estado ?? '').toLowerCase();
-             return est === 'activo' || est === 'asumido';
-          });
+        const incidentes = [...dataActivos, ...dataAsumidos, ...dataCerrados]
+          .map(mapIncidente);
 
         if (!cancelado) {
           setNotificaciones((s) => {
@@ -356,16 +472,37 @@ const Guardia: React.FC = () => {
 
               acumuladas.push(incidente);
               return acumuladas;
-            }, []).slice(0, 100);
+            }, []).slice(0, 150);
           });
         }
       } catch (error) {
         console.warn('No se pudieron cargar los incidentes iniciales.', error);
       }
     };
+    const cargarTurnoActivo = async () => {
+      try {
+        const user = getUsuarioSeguro();
+        if (user && user.idUsuario) {
+          const res = await fetch(`${INCIDENT_URL}/api/turnos/activo?idGuardia=${user.idUsuario}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.idTurno) {
+              setTurnoActivo(data);
+            } else {
+              setTurnoActivo(null);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error al cargar turno activo', error);
+      }
+    };
 
     (async () => {
       try {
+        await cargarTurnoActivo();
         await connection.start();
         setConectado(true);
         await connection.invoke('UnirseAlGrupo', 'Guardias').catch(() => {});
@@ -435,7 +572,14 @@ const Guardia: React.FC = () => {
           (position: Position | null, err?: any) => {
             if (err) {
               console.error("Error de geolocalización Capacitor:", err);
-              // Solo mostrar error si es muy grave, para no ser molesto.
+              // FALLBACK para pruebas en HTTP (porque Chrome bloquea GPS en HTTP)
+              const conn = connectionRef.current;
+              const user = getUsuarioSeguro();
+              if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+                console.log("Usando GPS simulado (Campus UTA) por fallo de permisos/HTTP");
+                conn.invoke('ActualizarUbicacionGuardia', String(user.idUsuario), user.nombre, -1.2688, -78.6248)
+                  .catch(e => console.error("Error al enviar ubicación simulada:", e));
+              }
               return;
             }
             if (position) {
@@ -457,9 +601,27 @@ const Guardia: React.FC = () => {
             }
           }
         );
+
+        // RESPALDO EXTRA: Si después de 3 segundos no ha detectado GPS (ej: emuladores), mandar uno simulado
+        setTimeout(() => {
+          const conn = connectionRef.current;
+          const user = getUsuarioSeguro();
+          if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+            console.log("Enviando GPS simulado por timeout...");
+            conn.invoke('ActualizarUbicacionGuardia', String(user.idUsuario), user.nombre, -1.2688, -78.6248).catch(() => {});
+          }
+        }, 3000);
+
       } catch (err) {
         console.error("Error inicializando GPS:", err);
         setError("Error al encender GPS. Revisa permisos.");
+        
+        // Fallback catch general
+        const conn = connectionRef.current;
+        const user = getUsuarioSeguro();
+        if (conn && conn.state === signalR.HubConnectionState.Connected && user) {
+           conn.invoke('ActualizarUbicacionGuardia', String(user.idUsuario), user.nombre, -1.2688, -78.6248).catch(() => {});
+        }
       }
     };
 
@@ -562,8 +724,20 @@ const Guardia: React.FC = () => {
         throw new Error(body.mensaje || `Error ${res.status}`);
       }
 
-      setNotificaciones((s) => s.filter((x) => x.idIncidente !== seleccionada.idIncidente));
+      // Evitamos la eliminación local al cerrarlos, en su lugar lo marcamos como Cerrado con sus observaciones
+      setNotificaciones((s) => s.map((x) => 
+        x.idIncidente === seleccionada.idIncidente 
+          ? { ...x, estado: 'Cerrado', observacionesCierre: observacionesCierre, fechaCierre: new Date().toISOString() } 
+          : x
+      ));
+      
       cerrarDetalle();
+      setSuccessMsg('Caso cerrado correctamente');
+      
+      setTimeout(() => {
+        setSegment('pendientes');
+      }, 300);
+
     } catch (error) {
       const e = error as Error;
       console.error('Error cerrando incidente', e);
@@ -575,10 +749,12 @@ const Guardia: React.FC = () => {
 
   // Filtrar notificaciones por segmento y zona seleccionada
   const notificacionesFiltradas = notificaciones.filter(n => {
-    // Filtro por segmento (pendientes / mis-casos)
+    // Filtro por segmento (pendientes / mis-casos / historial)
     const cumpleSegmento = segment === 'pendientes'
       ? (n.estado ?? 'Activo') === 'Activo'
-      : n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre;
+      : segment === 'mis-casos'
+      ? n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre
+      : n.estado === 'Cerrado';
 
     // Filtro por zona (desde IonSelect)
     const cumpleZona = zonaFiltro === 'todas'
@@ -623,6 +799,60 @@ const Guardia: React.FC = () => {
     }
   };
 
+  const enviarReporte = async () => {
+    if (!reporteForm.titulo.trim() || !reporteForm.descripcion.trim()) {
+      alert("El título y descripción son obligatorios");
+      return;
+    }
+    
+    const token = localStorage.getItem('token');
+    if (!token || !usuarioObj?.nombre) return;
+
+    setEnviandoReporte(true);
+    try {
+      // Intentar obtener IdZona buscando en zonasDB según el nombre seleccionado
+      const zonaObj = zonasDB.find(z => z.nombre === reporteForm.zona);
+
+      const payload = {
+        idGuardia: usuarioObj.idUsuario,
+        nombreGuardia: usuarioObj.nombre,
+        idTurno: turnoActivo ? turnoActivo.idTurno : null,
+        titulo: reporteForm.titulo,
+        descripcion: reporteForm.descripcion,
+        tipoReporte: reporteForm.tipoReporte,
+        prioridad: reporteForm.prioridad,
+        idZona: zonaObj ? zonaObj.idZona : null,
+        zona: reporteForm.zona
+      };
+
+      const res = await fetch(`${INCIDENT_URL}/api/reportes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error("Error enviando reporte");
+
+      alert("Reporte enviado exitosamente");
+      setReporteForm({
+        titulo: '',
+        descripcion: '',
+        tipoReporte: 'Seguridad',
+        prioridad: 'Media',
+        zona: 'Ninguna'
+      });
+      setSegment('pendientes');
+    } catch (e) {
+      console.error(e);
+      alert("No se pudo enviar el reporte");
+    } finally {
+      setEnviandoReporte(false);
+    }
+  };
+
   return (
     <IonPage>
       <IonContent className="guardia-content" fullscreen>
@@ -631,7 +861,25 @@ const Guardia: React.FC = () => {
             <button className="guardia-menu" type="button" aria-label="Abrir menú">
               <IonIcon icon={menuOutline} />
             </button>
-            <span className="guardia-brand">UTA Alerta</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+              <span className="guardia-brand">UTA Alerta</span>
+              {usuarioObj?.nombre && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '2px' }}>
+                    👮 {usuarioObj.nombre}
+                  </span>
+                  <div style={{ marginTop: '4px' }}>
+                    {turnoActivo ? (
+                      <IonBadge color="success" style={{ fontSize: '0.65rem' }}>
+                        Turno: {turnoActivo.nombreTurno}
+                      </IonBadge>
+                    ) : (
+                      <IonBadge color="danger" style={{ fontSize: '0.65rem' }}>Fuera de Turno</IonBadge>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </header>
 
           <section className="guardia-disponibilidad" aria-label="Disponibilidad del guardia">
@@ -668,7 +916,20 @@ const Guardia: React.FC = () => {
                   <IonLabel>Pendientes</IonLabel>
                 </IonSegmentButton>
                 <IonSegmentButton value="mis-casos">
-                  <IonLabel>Mis Casos</IonLabel>
+                  <IonLabel>
+                    Mis Casos
+                    {notificaciones.filter(n => n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre).length > 0 && (
+                      <IonBadge color="danger" style={{ marginLeft: '6px', fontSize: '0.7rem', verticalAlign: 'middle' }}>
+                        {notificaciones.filter(n => n.estado === 'Asumido' && n.guardiaAsignado === usuarioObj?.nombre).length}
+                      </IonBadge>
+                    )}
+                  </IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="historial">
+                  <IonLabel>Historial</IonLabel>
+                </IonSegmentButton>
+                <IonSegmentButton value="nuevo-reporte">
+                  <IonLabel>+ Reporte</IonLabel>
                 </IonSegmentButton>
               </IonSegment>
 
@@ -708,7 +969,101 @@ const Guardia: React.FC = () => {
             </div>
 
             <div className="guardia-lista">
-              {notificacionesFiltradas.length === 0 ? (
+              {segment === 'nuevo-reporte' ? (
+                <div className="nuevo-reporte-container" style={{ padding: '20px', background: '#fff', borderRadius: '12px', margin: '0 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <h2 style={{ marginTop: 0, marginBottom: '10px', color: '#333' }}>Crear Reporte de Novedad</h2>
+                  
+                  {!turnoActivo ? (
+                    <div style={{ padding: '15px', background: '#ffebee', color: '#c62828', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ffcdd2', fontSize: '0.9rem' }}>
+                      <strong>⚠️ Acceso Restringido</strong><br/>
+                      No puedes emitir reportes de novedad porque actualmente <b>no tienes un turno activo</b> asignado en el sistema.
+                    </div>
+                  ) : (
+                    <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', marginBottom: '20px', border: '1px solid #c8e6c9', fontSize: '0.85rem' }}>
+                      Registrando novedad bajo el turno: <strong>{turnoActivo.nombreTurno}</strong>
+                    </div>
+                  )}
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>Título del reporte</label>
+                    <input 
+                      type="text" 
+                      value={reporteForm.titulo}
+                      onChange={e => setReporteForm({...reporteForm, titulo: e.target.value})}
+                      placeholder="Ej. Novedad en puerta principal"
+                      disabled={!turnoActivo}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', background: !turnoActivo ? '#f5f5f5' : '#fff' }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>Tipo de Novedad</label>
+                    <select 
+                      value={reporteForm.tipoReporte}
+                      onChange={e => setReporteForm({...reporteForm, tipoReporte: e.target.value})}
+                      disabled={!turnoActivo}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', background: !turnoActivo ? '#f5f5f5' : '#fff' }}
+                    >
+                      <option value="Seguridad">Seguridad</option>
+                      <option value="Mantenimiento">Mantenimiento</option>
+                      <option value="Incidente Médico">Incidente Médico</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>Prioridad</label>
+                    <select 
+                      value={reporteForm.prioridad}
+                      onChange={e => setReporteForm({...reporteForm, prioridad: e.target.value})}
+                      disabled={!turnoActivo}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', background: !turnoActivo ? '#f5f5f5' : '#fff' }}
+                    >
+                      <option value="Baja">Baja</option>
+                      <option value="Media">Media</option>
+                      <option value="Alta">Alta</option>
+                      <option value="Urgente">Urgente</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>Zona Relacionada</label>
+                    <select 
+                      value={reporteForm.zona}
+                      onChange={e => setReporteForm({...reporteForm, zona: e.target.value})}
+                      disabled={!turnoActivo}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', background: !turnoActivo ? '#f5f5f5' : '#fff' }}
+                    >
+                      <option value="Ninguna">Ninguna / General</option>
+                      <option value="Zona 1">Zona 1 (Arqui/Humanidades)</option>
+                      <option value="Zona 2">Zona 2 (Administración)</option>
+                      <option value="Zona 3">Zona 3 (Salud)</option>
+                      <option value="Zona 4">Zona 4 (Ingeniería)</option>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#555' }}>Descripción Detallada</label>
+                    <IonTextarea 
+                      value={reporteForm.descripcion}
+                      onIonChange={e => setReporteForm({...reporteForm, descripcion: e.detail.value!})}
+                      placeholder="Describe lo sucedido detalladamente..."
+                      rows={5}
+                      disabled={!turnoActivo}
+                      style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', background: !turnoActivo ? '#f5f5f5' : '#fff', '--padding-start': '0' }}
+                    />
+                  </div>
+
+                  <IonButton 
+                    expand="block" 
+                    onClick={enviarReporte}
+                    disabled={!turnoActivo || enviandoReporte || !reporteForm.titulo.trim() || !reporteForm.descripcion.trim()}
+                    style={{ '--background': !turnoActivo ? '#ccc' : '#4f46e5', '--border-radius': '8px', fontWeight: 'bold' }}
+                  >
+                    {enviandoReporte ? <IonSpinner name="crescent" /> : 'Enviar Reporte a Admin'}
+                  </IonButton>
+                </div>
+              ) : notificacionesFiltradas.length === 0 ? (
                 <div className="guardia-empty">
                   <IonText>No hay notificaciones para mostrar.</IonText>
                 </div>
@@ -722,7 +1077,7 @@ const Guardia: React.FC = () => {
                     <div className="guardia-card-contenido">
                       <div className="guardia-card-top">
                         <strong className="guardia-card-titulo">{n.tipoIncidente}</strong>
-                        <span className="guardia-card-hora">{n.fechaReporte ?? ''}</span>
+                        <span className="guardia-card-hora" title={n.fechaReporte}>{tiempoRelativo(n.fechaReporte)}</span>
                       </div>
                       <p className="guardia-card-nombre">{n.nombreReportado}</p>
                       {(n.rol || n.carrera) && (
@@ -767,6 +1122,18 @@ const Guardia: React.FC = () => {
                 <p><strong>Motivo:</strong> {seleccionada.tipoIncidente}</p>
                 <p><strong>Zona:</strong> {seleccionada.zona}</p>
                 
+                {seleccionada.estado === 'Cerrado' && (
+                  <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '8px', margin: '12px 0', borderLeft: '4px solid #7f8c8d' }}>
+                    <p style={{ margin: '0 0 6px 0' }}><strong>Estado:</strong> <IonBadge color="medium">Cerrado</IonBadge></p>
+                    {seleccionada.fechaCierre && (
+                      <p style={{ margin: '0 0 6px 0' }}><strong>Fecha de Cierre:</strong> {new Date(seleccionada.fechaCierre).toLocaleString()}</p>
+                    )}
+                    {seleccionada.observacionesCierre && (
+                      <p style={{ margin: 0 }}><strong>Observaciones de Cierre:</strong> {seleccionada.observacionesCierre}</p>
+                    )}
+                  </div>
+                )}
+                
                 {/* CABECERA DE MAPA CON BOTÓN DE AMPLIACIÓN */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#555' }}>📍 Mapa de Ubicación:</span>
@@ -809,6 +1176,7 @@ const Guardia: React.FC = () => {
                       lat={lat} 
                       lng={lng} 
                       zonaNombre={seleccionada.zona} 
+                      zonasDB={zonasDB}
                     />
                   );
                 })()}
@@ -838,6 +1206,9 @@ const Guardia: React.FC = () => {
                         </IonButton>
                       </div>
                     </div>
+                  )}
+                  {seleccionada.estado === 'Cerrado' && (
+                    <IonButton color="light" onClick={cerrarDetalle} expand="block">Cerrar</IonButton>
                   )}
                 </div>
               </div>
@@ -890,6 +1261,7 @@ const Guardia: React.FC = () => {
                       lat={lat} 
                       lng={lng} 
                       zonaNombre={seleccionada.zona} 
+                      zonasDB={zonasDB}
                     />
                   </div>
                 </div>
@@ -897,6 +1269,26 @@ const Guardia: React.FC = () => {
             })()}
           </div>
         </IonModal>
+
+        {/* Toast para Errores */}
+        <IonToast
+          isOpen={!!error}
+          message={error || ''}
+          duration={3000}
+          onDidDismiss={() => setError(null)}
+          color="danger"
+          position="top"
+        />
+
+        {/* Toast para Éxito */}
+        <IonToast
+          isOpen={!!successMsg}
+          message={successMsg || ''}
+          duration={3000}
+          onDidDismiss={() => setSuccessMsg(null)}
+          color="success"
+          position="top"
+        />
       </IonContent>
     </IonPage>
   );

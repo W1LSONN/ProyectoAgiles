@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -19,6 +19,7 @@ import './DashboardPanel.css';
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, LineElement, PointElement, Tooltip, Legend, Title, Filler);
 
 const STATS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
 
 const COLORS = ['#e74c3c', '#3498db', '#f1c40f', '#9b59b6', '#34495e', '#e67e22'];
 
@@ -50,6 +51,15 @@ const EMPTY_STATS: DashboardStats = {
 
 type Periodo = 'dia' | 'semana' | 'mes' | 'custom';
 
+const TIPOS_INCIDENTE = [
+  'Todos',
+  'Robo',
+  'Arma Blanca',
+  'Emergencia de Salud',
+  'Alerta de seguridad',
+  'Otro',
+];
+
 const calculateChange = (current: number, previous: number) => {
   if (previous === 0) {
     return { value: current > 0 ? 100 : 0, type: current > 0 ? 'increase' : 'neutral' };
@@ -70,7 +80,20 @@ const DashboardPanel = () => {
   const [mensajeFiltro, setMensajeFiltro] = useState('');
   const [customFilterApplied, setCustomFilterApplied] = useState(false);
 
-  const fetchEstadisticas = async (periodoParam: Periodo, inicio?: string, fin?: string) => {
+  // Filtros adicionales: zona y tipo
+  const [zonas, setZonas] = useState<{ idZona: number; nombre: string }[]>([]);
+  const [zonaSeleccionada, setZonaSeleccionada] = useState('');
+  const [tipoSeleccionado, setTipoSeleccionado] = useState('Todos');
+
+  // Cargar zonas dinámicas desde la BD
+  useEffect(() => {
+    fetch(`${INCIDENT_URL}/api/zonas?soloActivas=true`)
+      .then(r => r.json())
+      .then(data => setZonas(data))
+      .catch(() => {}); // silencioso si no hay servicio
+  }, []);
+
+  const fetchEstadisticas = useCallback(async (periodoParam: Periodo, inicio?: string, fin?: string, zona?: string, tipo?: string) => {
     setCargando(true);
     setMensajeFiltro('');
 
@@ -79,11 +102,11 @@ const DashboardPanel = () => {
       if (periodoParam === 'custom' && inicio && fin) {
         url = `${STATS_URL}/api/incidents/stats?periodo=custom&inicio=${inicio}&fin=${fin}`;
       }
+      if (zona) url += `&zona=${encodeURIComponent(zona)}`;
+      if (tipo && tipo !== 'Todos') url += `&tipo=${encodeURIComponent(tipo)}`;
 
       const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) {
-        throw new Error('Endpoint no disponible aún');
-      }
+      if (!res.ok) throw new Error('Endpoint no disponible aún');
 
       const data = await res.json();
       if (data && data.globales) {
@@ -106,30 +129,28 @@ const DashboardPanel = () => {
     } finally {
       setCargando(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (periodo !== 'custom') {
       setCustomFilterApplied(false);
-      fetchEstadisticas(periodo);
+      fetchEstadisticas(periodo, undefined, undefined, zonaSeleccionada, tipoSeleccionado);
     } else {
       setStats(EMPTY_STATS);
       setCargando(false);
       setMensajeFiltro('');
       setCustomFilterApplied(false);
     }
-  }, [periodo]);
+  }, [periodo, zonaSeleccionada, tipoSeleccionado, fetchEstadisticas]);
 
   const handleApplyFilters = () => {
     setMensajeFiltro('');
-
     if (!fechaInicio || !fechaFin) {
       setStats(EMPTY_STATS);
       setCustomFilterApplied(false);
       setMensajeFiltro('Seleccione una fecha de inicio y una fecha de fin.');
       return;
     }
-
     const inicioDate = new Date(fechaInicio);
     const finDate = new Date(fechaFin);
     if (finDate < inicioDate) {
@@ -138,9 +159,8 @@ const DashboardPanel = () => {
       setMensajeFiltro('La fecha de fin debe ser igual o posterior a la fecha de inicio.');
       return;
     }
-
     setCustomFilterApplied(true);
-    fetchEstadisticas('custom', fechaInicio, fechaFin);
+    fetchEstadisticas('custom', fechaInicio, fechaFin, zonaSeleccionada, tipoSeleccionado);
   };
 
   const hayDatosParaGraficos = (stats.globales?.total ?? 0) > 0;
@@ -159,19 +179,53 @@ const DashboardPanel = () => {
 
   return (
     <div className="dashboard-panel">
-      <div className="dashboard-filters">
-        <button type="button" className={`filter-btn ${periodo === 'dia' ? 'active' : ''}`} onClick={() => { setPeriodo('dia'); setMensajeFiltro(''); }}>
-          Hoy
-        </button>
-        <button type="button" className={`filter-btn ${periodo === 'semana' ? 'active' : ''}`} onClick={() => { setPeriodo('semana'); setMensajeFiltro(''); }}>
-          Últimos 7 días
-        </button>
-        <button type="button" className={`filter-btn ${periodo === 'mes' ? 'active' : ''}`} onClick={() => { setPeriodo('mes'); setMensajeFiltro(''); }}>
-          Últimos 30 días
-        </button>
-        <button type="button" className={`filter-btn ${periodo === 'custom' ? 'active' : ''}`} onClick={() => { setPeriodo('custom'); setMensajeFiltro(''); }}>
-          Personalizado
-        </button>
+
+      {/* ── FILA DE FILTROS SUPERIOR ── */}
+      <div className="dashboard-filters-row">
+        {/* Filtros de periodo */}
+        <div className="dashboard-filters">
+          <button type="button" className={`filter-btn ${periodo === 'dia' ? 'active' : ''}`} onClick={() => { setPeriodo('dia'); setMensajeFiltro(''); }}>
+            Hoy
+          </button>
+          <button type="button" className={`filter-btn ${periodo === 'semana' ? 'active' : ''}`} onClick={() => { setPeriodo('semana'); setMensajeFiltro(''); }}>
+            Últimos 7 días
+          </button>
+          <button type="button" className={`filter-btn ${periodo === 'mes' ? 'active' : ''}`} onClick={() => { setPeriodo('mes'); setMensajeFiltro(''); }}>
+            Últimos 30 días
+          </button>
+          <button type="button" className={`filter-btn ${periodo === 'custom' ? 'active' : ''}`} onClick={() => { setPeriodo('custom'); setMensajeFiltro(''); }}>
+            Personalizado
+          </button>
+        </div>
+
+        {/* Filtros de zona y tipo */}
+        <div className="dashboard-extra-filters">
+          <div className="extra-filter-group">
+            <label htmlFor="filtroZona">Zona:</label>
+            <select
+              id="filtroZona"
+              value={zonaSeleccionada}
+              onChange={e => setZonaSeleccionada(e.target.value)}
+            >
+              <option value="">Todas las zonas</option>
+              {zonas.map(z => (
+                <option key={z.idZona} value={z.nombre}>{z.nombre}</option>
+              ))}
+            </select>
+          </div>
+          <div className="extra-filter-group">
+            <label htmlFor="filtroTipo">Tipo:</label>
+            <select
+              id="filtroTipo"
+              value={tipoSeleccionado}
+              onChange={e => setTipoSeleccionado(e.target.value)}
+            >
+              {TIPOS_INCIDENTE.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {periodo === 'custom' && (
@@ -200,6 +254,24 @@ const DashboardPanel = () => {
       {mensajeFiltro && (
         <div className="dashboard-filter-message" style={{ margin: '16px 0', color: '#c0392b', fontWeight: 600 }}>
           {mensajeFiltro}
+        </div>
+      )}
+
+      {/* Badge de filtros activos */}
+      {(zonaSeleccionada || tipoSeleccionado !== 'Todos') && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', margin: '8px 0' }}>
+          {zonaSeleccionada && (
+            <span className="active-filter-badge">
+              📍 {zonaSeleccionada}
+              <button onClick={() => setZonaSeleccionada('')} title="Quitar filtro">×</button>
+            </span>
+          )}
+          {tipoSeleccionado !== 'Todos' && (
+            <span className="active-filter-badge">
+              🚨 {tipoSeleccionado}
+              <button onClick={() => setTipoSeleccionado('Todos')} title="Quitar filtro">×</button>
+            </span>
+          )}
         </div>
       )}
 
@@ -253,7 +325,9 @@ const DashboardPanel = () => {
               border: '1px dashed #ddd',
             }}>
               <p style={{ margin: 0, fontSize: '1.1rem' }}>
-                📊 No hay datos de incidentes para el periodo seleccionado.
+                📊 No hay datos de incidentes para el periodo
+                {zonaSeleccionada ? ` y zona "${zonaSeleccionada}"` : ''}
+                {tipoSeleccionado !== 'Todos' ? ` y tipo "${tipoSeleccionado}"` : ''} seleccionado.
               </p>
             </div>
           ) : (
@@ -296,15 +370,8 @@ const DashboardPanel = () => {
                         },
                       },
                       scales: {
-                        x: {
-                          grid: { display: false },
-                          ticks: { color: '#666' },
-                        },
-                        y: {
-                          beginAtZero: true,
-                          grid: { color: 'rgba(0,0,0,0.08)' },
-                          ticks: { color: '#666', precision: 0 },
-                        },
+                        x: { grid: { display: false }, ticks: { color: '#666' } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.08)' }, ticks: { color: '#666', precision: 0 } },
                       },
                     }}
                   />
@@ -387,10 +454,7 @@ const DashboardPanel = () => {
                         },
                       },
                       scales: {
-                        y: {
-                          beginAtZero: true,
-                          ticks: { precision: 0 },
-                        },
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
                       },
                     }}
                   />

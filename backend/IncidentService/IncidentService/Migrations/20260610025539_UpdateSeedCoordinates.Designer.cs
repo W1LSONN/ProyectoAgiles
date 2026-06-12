@@ -4,6 +4,7 @@ using IncidentService.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace IncidentService.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610025539_UpdateSeedCoordinates")]
+    partial class UpdateSeedCoordinates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -157,160 +160,6 @@ namespace IncidentService.Migrations
                     b.ToTable("Incidentes");
                 });
 
-            modelBuilder.Entity("IncidentService.Models.ReporteGuardia", b =>
-                {
-                    b.Property<int>("IdReporte")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdReporte"));
-
-                    b.Property<string>("Descripcion")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("FechaCreacion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("HoraIncidente")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("IdGuardia")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("IdTurno")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("IdZona")
-                        .HasColumnType("int");
-
-                    b.Property<decimal?>("Latitud")
-                        .HasColumnType("decimal(10,7)");
-
-                    b.Property<decimal?>("Longitud")
-                        .HasColumnType("decimal(10,7)");
-
-                    b.Property<string>("NombreGuardia")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("NumeroReporte")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("Prioridad")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("TipoReporte")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Titulo")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.HasKey("IdReporte");
-
-                    b.HasIndex("IdTurno");
-
-                    b.HasIndex("IdZona");
-
-                    b.ToTable("ReportesGuardia");
-                });
-
-            modelBuilder.Entity("IncidentService.Models.Turno", b =>
-                {
-                    b.Property<int>("IdTurno")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdTurno"));
-
-                    b.Property<bool>("Activo")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("DiaSemana")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("FechaCreacion")
-                        .HasColumnType("datetime2");
-
-                    b.Property<TimeSpan>("HoraFin")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("HoraInicio")
-                        .HasColumnType("time");
-
-                    b.Property<int>("IdGuardia")
-                        .HasColumnType("int");
-
-                    b.Property<string>("NombreGuardia")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("NombreTurno")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.HasKey("IdTurno");
-
-                    b.ToTable("Turnos");
-
-                    b.HasData(
-                        new
-                        {
-                            IdTurno = 1,
-                            Activo = true,
-                            DiaSemana = "Todos",
-                            FechaCreacion = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            HoraFin = new TimeSpan(0, 13, 0, 0, 0),
-                            HoraInicio = new TimeSpan(0, 7, 0, 0, 0),
-                            IdGuardia = 0,
-                            NombreGuardia = "",
-                            NombreTurno = "Turno Mañana"
-                        },
-                        new
-                        {
-                            IdTurno = 2,
-                            Activo = true,
-                            DiaSemana = "Todos",
-                            FechaCreacion = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            HoraFin = new TimeSpan(0, 19, 0, 0, 0),
-                            HoraInicio = new TimeSpan(0, 13, 0, 0, 0),
-                            IdGuardia = 0,
-                            NombreGuardia = "",
-                            NombreTurno = "Turno Tarde"
-                        },
-                        new
-                        {
-                            IdTurno = 3,
-                            Activo = true,
-                            DiaSemana = "Todos",
-                            FechaCreacion = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
-                            HoraFin = new TimeSpan(0, 7, 0, 0, 0),
-                            HoraInicio = new TimeSpan(0, 19, 0, 0, 0),
-                            IdGuardia = 0,
-                            NombreGuardia = "",
-                            NombreTurno = "Turno Noche"
-                        });
-                });
-
             modelBuilder.Entity("IncidentService.Models.Zona", b =>
                 {
                     b.Property<int>("IdZona")
@@ -401,26 +250,6 @@ namespace IncidentService.Migrations
                         .IsRequired();
 
                     b.Navigation("Zona");
-                });
-
-            modelBuilder.Entity("IncidentService.Models.ReporteGuardia", b =>
-                {
-                    b.HasOne("IncidentService.Models.Turno", "Turno")
-                        .WithMany("Reportes")
-                        .HasForeignKey("IdTurno");
-
-                    b.HasOne("IncidentService.Models.Zona", "Zona")
-                        .WithMany()
-                        .HasForeignKey("IdZona");
-
-                    b.Navigation("Turno");
-
-                    b.Navigation("Zona");
-                });
-
-            modelBuilder.Entity("IncidentService.Models.Turno", b =>
-                {
-                    b.Navigation("Reportes");
                 });
 
             modelBuilder.Entity("IncidentService.Models.Zona", b =>

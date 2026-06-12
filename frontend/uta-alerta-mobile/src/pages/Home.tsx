@@ -9,7 +9,6 @@ import { wifiOutline, personCircleOutline } from 'ionicons/icons';
 import { useHistory } from 'react-router-dom';
 import './Home.css';
 import { crearIncidente } from '../services/incidentService';
-import { crearIncidente } from '../services/incidentService';
 import { Geolocation } from '@capacitor/geolocation';
 
 // Tipo para los datos del usuario guardados en localStorage

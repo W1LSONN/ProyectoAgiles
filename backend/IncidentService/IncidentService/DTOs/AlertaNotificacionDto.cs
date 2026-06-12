@@ -7,6 +7,7 @@ namespace IncidentService.DTOs;
 public class AlertaNotificacionDto
 {
     public int IdIncidente { get; set; }
+    public int? IdUsuario { get; set; }
     public string NombreUsuario { get; set; } = string.Empty;
     public string Facultad { get; set; } = string.Empty;
     public string Zona { get; set; } = string.Empty;

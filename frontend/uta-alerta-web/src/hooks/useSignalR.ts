@@ -79,6 +79,7 @@ export function useSignalR(grupo: string, onNewAlerta?: (alerta: AlertaIncidente
 
     useEffect(() => {
         let cancelado = false;
+        let manejarAlertaIncidenteRef: any = null;
 
         const iniciar = async () => {
             try {
@@ -87,7 +88,7 @@ export function useSignalR(grupo: string, onNewAlerta?: (alerta: AlertaIncidente
                 if (cancelado) return;
 
                 const conn = signalRService.getConnection()!;
-                const manejarAlertaIncidente = (data: AlertaIncidente) => {
+                manejarAlertaIncidenteRef = (data: AlertaIncidente) => {
                     if (!cancelado) {
                         agregarAlerta(data);
                         if (onNewAlerta) onNewAlerta(data);
@@ -95,7 +96,7 @@ export function useSignalR(grupo: string, onNewAlerta?: (alerta: AlertaIncidente
                 };
 
                 // Escuchar alertas
-                conn.on('RecibirAlertaIncidente', manejarAlertaIncidente);
+                conn.on('RecibirAlertaIncidente', manejarAlertaIncidenteRef);
 
                 // CORRECCIÓN: Solo unirse e iluminar el badge si la conexión fue exitosa
                 if (conn.state === signalR.HubConnectionState.Connected) {
@@ -129,8 +130,8 @@ export function useSignalR(grupo: string, onNewAlerta?: (alerta: AlertaIncidente
             cancelado = true;
             // La validación interna en el service evitará el error de "Cannot send data..."
             const conn = signalRService.getConnection();
-            if (conn) {
-                conn.off('RecibirAlertaIncidente');
+            if (conn && manejarAlertaIncidenteRef) {
+                conn.off('RecibirAlertaIncidente', manejarAlertaIncidenteRef);
             }
             signalRService.leaveGroup(grupo);
         };

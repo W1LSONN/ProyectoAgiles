@@ -1,0 +1,194 @@
+.sol-content {
+  --background: #0f0f1a;
+}
+
+.sol-toolbar {
+  --background: #1a1a2e;
+  --color: #fff;
+  --border-color: rgba(255,255,255,0.08);
+}
+
+.sol-container {
+  padding: 20px 16px 40px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── CABECERA ── */
+.sol-header {
+  text-align: center;
+  padding: 24px 0 20px;
+  color: #fff;
+}
+
+.sol-icon-big {
+  font-size: 3rem;
+  color: #3498db;
+  margin-bottom: 10px;
+}
+
+.sol-header h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.sol-header p {
+  font-size: 0.87rem;
+  color: #aaa;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── ALERTS ── */
+.sol-alert {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+  animation: fadeSlideIn 0.25s ease;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sol-alert.error   { background: rgba(231,76,60,0.18); color: #fca5a5; border: 1px solid rgba(231,76,60,0.35); }
+.sol-alert.success { background: rgba(46,204,113,0.18); color: #86efac; border: 1px solid rgba(46,204,113,0.35); }
+
+/* ── LOADING ── */
+.sol-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 50px 0;
+  color: #888;
+}
+
+/* ── VACÍO ── */
+.sol-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 50px 20px;
+  text-align: center;
+  color: #aaa;
+}
+
+.sol-empty-icon { font-size: 3.5rem; margin-bottom: 4px; }
+
+.sol-empty h3 {
+  color: #fff;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.sol-empty p {
+  font-size: 0.87rem;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 300px;
+}
+
+.sol-btn-grupos {
+  margin-top: 10px;
+  --color: #3498db;
+  --border-color: #3498db;
+}
+
+/* ── LISTA ── */
+.sol-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── CARD ── */
+.sol-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  animation: fadeSlideIn 0.3s ease;
+}
+
+.sol-card-top {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.sol-grupo-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+  background: rgba(52,152,219,0.12);
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(52,152,219,0.3);
+}
+
+.sol-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.sol-grupo-nombre {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.sol-grupo-desc {
+  font-size: 0.82rem;
+  color: #aaa;
+  margin: 0;
+}
+
+.sol-invitador {
+  font-size: 0.82rem;
+  color: #888;
+  margin: 4px 0 0 0;
+}
+
+.sol-invitador strong { color: #3498db; }
+
+.sol-tiempo {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+/* ── BOTONES ── */
+.sol-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sol-actions .sol-btn {
+  flex: 1;
+}
+
+.sol-btn-aceptar {
+  --background: linear-gradient(135deg, #27ae60, #2ecc71);
+  --border-radius: 10px;
+  font-weight: 700;
+}
+
+.sol-btn-rechazar {
+  --border-radius: 10px;
+  font-weight: 600;
+}

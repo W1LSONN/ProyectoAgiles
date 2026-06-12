@@ -58,6 +58,7 @@ public class IncidentsController : ControllerBase
         await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
         {
             IdIncidente   = nuevoIncidente.IdIncidente,
+            IdUsuario     = nuevoIncidente.IdUsuario,
             NombreUsuario = $"Usuario #{nuevoIncidente.IdUsuario}",  // en T-15 se puede mejorar con el nombre real
             Facultad      = zona?.Nombre ?? "UTA",
             Zona          = zona?.Nombre ?? $"Zona {nuevoIncidente.IdZona}",
@@ -124,6 +125,7 @@ public class IncidentsController : ControllerBase
         await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
         {
             IdIncidente   = incidente.IdIncidente,
+            IdUsuario     = incidente.IdUsuario,
             NombreUsuario = $"Usuario #{incidente.IdUsuario}",
             Facultad      = zona?.Nombre ?? "UTA",
             Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
@@ -254,6 +256,7 @@ public class IncidentsController : ControllerBase
             await _notificationClient.EnviarAlertaAsync(new AlertaNotificacionDto
             {
                 IdIncidente   = incidente.IdIncidente,
+                IdUsuario     = incidente.IdUsuario,
                 NombreUsuario = $"Usuario #{incidente.IdUsuario}",
                 Facultad      = zona?.Nombre ?? "UTA",
                 Zona          = zona?.Nombre ?? $"Zona {incidente.IdZona}",
@@ -278,7 +281,7 @@ public class IncidentsController : ControllerBase
     }
 
     [HttpGet("stats")]
-    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo, [FromQuery] string? inicio, [FromQuery] string? fin)
+    public async Task<IActionResult> ObtenerEstadisticas([FromQuery] string? periodo, [FromQuery] string? inicio, [FromQuery] string? fin, [FromQuery] string? zona, [FromQuery] string? tipo)
     {
         // 1. Rango de fechas
         DateTime fechaInicio;
@@ -326,10 +329,23 @@ public class IncidentsController : ControllerBase
         }
 
         // 2. Traer incidentes de la BD
-        var incidentesActuales = await _context.Incidentes
+        var queryActuales = _context.Incidentes
             .Include(i => i.Zona)
-            .Where(i => i.FechaReporte >= fechaInicio && i.FechaReporte <= fechaFin)
-            .ToListAsync();
+            .Where(i => i.FechaReporte >= fechaInicio && i.FechaReporte <= fechaFin);
+
+        // Filtro adicional por nombre de zona
+        if (!string.IsNullOrWhiteSpace(zona))
+        {
+            queryActuales = queryActuales.Where(i => i.Zona != null && i.Zona.Nombre == zona);
+        }
+
+        // Filtro adicional por tipo de incidente
+        if (!string.IsNullOrWhiteSpace(tipo))
+        {
+            queryActuales = queryActuales.Where(i => i.TipoIncidente == tipo);
+        }
+
+        var incidentesActuales = await queryActuales.ToListAsync();
 
         var incidentesPrevios = await _context.Incidentes
             .Where(i => i.FechaReporte >= fechaInicioPrevio && i.FechaReporte < fechaInicio)

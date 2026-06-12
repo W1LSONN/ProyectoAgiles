@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonButton } from '@ionic/react';
+
+interface Props {
+  children?: ReactNode;
+}
 
 interface State {
   hasError: boolean;
   error?: Error | null;
 }
 
-class ErrorBoundary extends React.Component<{}, State> {
-  constructor(props: {}) {
+class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }

@@ -11,10 +11,14 @@ import type { AlertaIncidente } from '../services/signalrService';
 import { type Camera, getCameras } from '../services/camerasService';
 import './MapComponent.css';
 
+const INCIDENT_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
+
 // URL del Hub de SignalR (debe coincidir con el backend)
 const SIGNALR_URL = import.meta.env.VITE_NOTIFICATION_URL
   ? `${import.meta.env.VITE_NOTIFICATION_URL}/hubs/incident`
-  : 'http://localhost:5009/hubs/incident';
+  : (import.meta.env.VITE_NOTIFICATIONS_URL
+      ? `${import.meta.env.VITE_NOTIFICATIONS_URL}/hubs/incident`
+      : 'http://localhost:5009/hubs/incident');
 
 // Icono rojo personalizado para incidentes
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -29,15 +33,6 @@ const redIcon = L.icon({
   popupAnchor: [1, -34],
   tooltipAnchor: [16, -28],
   shadowSize: [41, 41],
-});
-
-// Icono personalizado para cámaras (CCTV)
-const cctvIcon = L.divIcon({
-  html: '<div style="font-size: 20px; background: #333; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5);">📹</div>',
-  className: 'cctv-marker',
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
-  popupAnchor: [0, -16],
 });
 
 // Icono personalizado para guardias
@@ -76,18 +71,10 @@ const GuardiasLayer = ({ guardias }: { guardias: Record<string, GuardiaLocation>
       // Opciones de personalización del cluster
       iconCreateFunction: function (cluster) {
         const count = cluster.getChildCount();
-        let className = 'marker-cluster-';
-        if (count < 10) {
-          className += 'small';
-        } else if (count < 100) {
-          className += 'medium';
-        } else {
-          className += 'large';
-        }
         return L.divIcon({
-          html: `<div><span>${count}</span></div>`,
-          className: `marker-cluster ${className}`,
-          iconSize: new L.Point(40, 40)
+          html: `<div style="background:rgba(41,128,185,0.95);color:#fff;border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:0 2px 8px rgba(41,128,185,0.5);border:2px solid #fff;font-size:0.95rem;">🛡️${count}</div>`,
+          className: '',
+          iconSize: new L.Point(42, 42)
         });
       }
     });
@@ -112,6 +99,52 @@ const GuardiasLayer = ({ guardias }: { guardias: Record<string, GuardiaLocation>
     });
     clusterRef.current.addLayers(markers);
   }, [guardias]);
+
+  return null;
+  return null;
+};
+
+// Componente para la capa de incidentes con clustering
+const IncidentesLayer = ({ incidentes, encontrarZona }: { incidentes: AlertaIncidente[]; encontrarZona: (inc: any) => Zona | undefined }) => {
+  const map = useMap();
+  const clusterRef = useRef<L.MarkerClusterGroup | null>(null);
+
+  useEffect(() => {
+    clusterRef.current = L.markerClusterGroup({
+      iconCreateFunction: function (cluster) {
+        const count = cluster.getChildCount();
+        return L.divIcon({
+          html: `<div style="background:rgba(231,76,60,0.85);color:#fff;border-radius:50%;width:${count < 10 ? 36 : 44}px;height:${count < 10 ? 36 : 44}px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;box-shadow:0 2px 8px rgba(231,76,60,0.5);border:2px solid #fff;"><span>${count}</span></div>`,
+          className: '',
+          iconSize: new L.Point(44, 44),
+        });
+      },
+    });
+    map.addLayer(clusterRef.current);
+    return () => { if (clusterRef.current) map.removeLayer(clusterRef.current); };
+  }, [map]);
+
+  useEffect(() => {
+    if (!clusterRef.current) return;
+    clusterRef.current.clearLayers();
+    const markers: L.Marker[] = [];
+    incidentes.forEach((incidente, idx) => {
+      const zona = encontrarZona(incidente);
+      if (!zona) return;
+      const [latBase, longBase] = getCentroPorZona(zona.id);
+      let idNum = idx;
+      const incId = incidente.idIncidente as any;
+      if (typeof incId === 'number' && incId !== 0) idNum = incId;
+      else if (typeof incId === 'string') idNum = incId.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+      idNum = idNum + (idx * 37);
+      const lat = (incidente.latitud != null && incidente.latitud !== 0) ? incidente.latitud : (latBase + ((idNum * 13) % 100 - 50) * 0.000004);
+      const long = (incidente.longitud != null && incidente.longitud !== 0) ? incidente.longitud : (longBase + ((idNum * 17) % 100 - 50) * 0.000004);
+      const marker = L.marker([lat, long], { icon: redIcon })
+        .bindPopup(`<div class="popup-incidente"><h5>${incidente.tipoIncidente}</h5><p><strong>Zona:</strong> ${zona.nombre}</p><p><strong>Usuario:</strong> ${incidente.nombreUsuario || `#${(incidente as any).idUsuario}`}</p><p><strong>Fecha:</strong> ${new Date(incidente.fechaReporte).toLocaleString('es-EC')}</p></div>`);
+      markers.push(marker);
+    });
+    clusterRef.current.addLayers(markers);
+  }, [incidentes, encontrarZona]);
 
   return null;
 };
@@ -143,6 +176,9 @@ const MapFlyTo = ({ focoIncidente, encontrarZona }: { focoIncidente?: AlertaInci
 const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComponentProps) => {
   const [zonaActiva, setZonaActiva] = useState<string | null>(null);
   
+  // Estado para zonas dinámicas desde BD
+  const [zonasDB, setZonasDB] = useState<{ id: number; nombre: string; coordenadasPoligono?: string }[]>([]);
+
   // Estado para T-11: Cámaras
   const [camaras, setCamaras] = useState<Camera[]>([]);
   const [mostrarCamaras, setMostrarCamaras] = useState(true);
@@ -154,6 +190,15 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
   // Estado para T-10: Ubicación de guardias
   const [guardias, setGuardias] = useState<Record<string, GuardiaLocation>>({});
   const [mostrarGuardias, setMostrarGuardias] = useState(true);
+
+  // Cargar zonas desde la BD
+  useEffect(() => {
+    fetch(`${INCIDENT_URL}/api/zonas?soloActivas=true`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setZonasDB(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
 
   // Cargar cámaras al inicializar
   useEffect(() => {
@@ -191,26 +236,31 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
       const lat = data.lat ?? data.Lat ?? data.latitud ?? data.Latitud;
       const lon = data.lon ?? data.Lon ?? data.longitud ?? data.Longitud;
 
-      // Validar que los datos recibidos son correctos
-      if (data && typeof userId === 'string' && typeof lat === 'number' && typeof lon === 'number') {
+      // Validar que los datos recibidos son correctos (admitiendo tanto strings como números para userId)
+      if (data && userId != null && typeof lat === 'number' && typeof lon === 'number') {
+        const userIdStr = String(userId);
         if (lat === 0 && lon === 0) {
           // El guardia se desconectó o ya no está disponible
+          console.log(`[MapComponent] Guardia ${userIdStr} desconectado`);
           setGuardias(prev => {
             const next = { ...prev };
-            delete next[userId];
+            delete next[userIdStr];
             return next;
           });
         } else {
+          console.log(`[MapComponent] GPS recibido de Guardia ${userIdStr}:`, lat, lon);
           setGuardias(prev => ({
             ...prev,
-            [userId]: {
-              id: userId,
-              nombre: nombre || `Guardia ${userId}`,
+            [userIdStr]: {
+              id: userIdStr,
+              nombre: nombre || `Guardia ${userIdStr}`,
               lat: lat,
               lon: lon,
             },
           }));
         }
+      } else {
+        console.warn('[MapComponent] Payload GPS inválido:', data);
       }
     });
 
@@ -271,10 +321,6 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
   const handleZonaClick = (zona: Zona) => {
     setZonaActiva(zonaActiva === zona.id ? null : zona.id);
     onZonaSeleccionada?.(zona);
-  };
-
-  const getCantidadIncidentes = (zonaId: string): number => {
-    return incidentesPorZona[zonaId]?.length ?? 0;
   };
 
   return (
@@ -355,7 +401,27 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
           {/* Capa de guardias con clustering */}
           {mostrarGuardias && <GuardiasLayer guardias={guardias} />}
 
-          {/* Polígonos de las zonas */}
+          {/* Capa de incidentes con clustering automático */}
+          <IncidentesLayer
+            incidentes={incidentes.filter(i => {
+              const estadoStr = (i.estado || (i as any).Estado || '').toLowerCase();
+              if (estadoStr === 'cerrado' || estadoStr === 'resuelto' || estadoStr === 'falsa alarma') return false;
+              if (filtroZona !== 'todas') {
+                const zonaIdTarget = `zona ${filtroZona}`;
+                const zonaAsignada = encontrarZona(i);
+                if (!zonaAsignada || zonaAsignada.id !== zonaIdTarget) return false;
+              }
+              if (filtroTipoIncidente !== 'todos') {
+                const tipoIncidente = i.tipoIncidente || (i as any).TipoIncidente || '';
+                if (tipoIncidente !== filtroTipoIncidente) return false;
+              }
+              return true;
+            })}
+            encontrarZona={encontrarZona}
+          />
+
+
+          {/* Polígonos de las zonas fijas (hardcoded) */}
           {ZONAS.map(zona => (
             <Polygon
               key={zona.id}
@@ -368,92 +434,32 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
                 fillColor: zona.color,
                 dashArray: zonaActiva === zona.id ? undefined : '5, 5',
               }}
-              eventHandlers={{
-                click: () => handleZonaClick(zona),
-              }}
+              eventHandlers={{ click: () => handleZonaClick(zona) }}
             >
-              <Popup>
-                <div className="popup-zona">
-                  <h4>{zona.nombre}</h4>
-                </div>
-              </Popup>
+              <Popup><div className="popup-zona"><h4>{zona.nombre}</h4></div></Popup>
             </Polygon>
           ))}
 
-          {/* Marcadores de incidentes */}
-          {incidentes.filter(i => {
-            const estadoStr = (i.estado || (i as any).Estado || '').toLowerCase();
-            if (estadoStr === 'cerrado' || estadoStr === 'resuelto' || estadoStr === 'falsa alarma') {
-              return false;
-            }
-
-            // Filtro por Zona
-            if (filtroZona !== 'todas') {
-              const zonaIdTarget = `zona ${filtroZona}`; // Ej: "zona 1"
-              const zonaAsignada = encontrarZona(i);
-              if (!zonaAsignada || zonaAsignada.id !== zonaIdTarget) {
-                return false;
-              }
-            }
-
-            // Filtro por Tipo de Incidente
-            if (filtroTipoIncidente !== 'todos') {
-              const tipoIncidente = i.tipoIncidente || (i as any).TipoIncidente || '';
-              if (tipoIncidente !== filtroTipoIncidente) {
-                return false;
-              }
-            }
-
-            return true;
-          }).map((incidente, idx) => {
-            const zona = encontrarZona(incidente);
-            if (!zona) return null;
-
-            const [latBase, longBase] = getCentroPorZona(zona.id);
-            
-            // Coordenadas semi-aleatorias FIJAS basadas en el ID para evitar que los pines se borren
-            let idNum = idx;
-            const incId = incidente.idIncidente as any;
-            if (typeof incId === 'number' && incId !== 0) {
-              idNum = incId;
-            } else if (typeof incId === 'string') {
-              idNum = incId.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-            }
-            
-            // Mezclar con el índice para asegurar que los marcadores NUNCA se encimen exactamente
-            idNum = idNum + (idx * 37);
-
-            const offsetLat = ((idNum * 13) % 100 - 50) * 0.000004;
-            const offsetLng = ((idNum * 17) % 100 - 50) * 0.000004;
-            const lat = (incidente.latitud != null && incidente.latitud !== 0) ? incidente.latitud : (latBase + offsetLat);
-            const long = (incidente.longitud != null && incidente.longitud !== 0) ? incidente.longitud : (longBase + offsetLng);
-
-            // Obtener el nombre descriptivo que viene desde la BD
-            const nombreBd = (incidente as any).facultad;
-            const textoZonaPopup = (nombreBd && nombreBd !== '—')
-              ? (nombreBd.toLowerCase().includes('zona') ? nombreBd : `${zona.nombre} — ${nombreBd}`)
-              : zona.nombre;
-
+          {/* Polígonos de zonas dinámicas desde BD */}
+          {zonasDB.filter(z => z.coordenadasPoligono).map(z => {
+            let coords: [number, number][] = [];
+            try { coords = JSON.parse(z.coordenadasPoligono!); } catch { return null; }
+            if (coords.length < 3) return null;
             return (
-              <Marker
-                key={`${incidente.idIncidente}-${idx}`}
-                position={[lat, long] as L.LatLngExpression}
-                icon={redIcon}
+              <Polygon
+                key={`db-${z.id}`}
+                positions={coords as L.LatLngExpression[]}
+                pathOptions={{ color: '#9b59b6', weight: 2, opacity: 0.7, fillOpacity: 0.15, dashArray: '8, 4' }}
               >
-                <Popup>
-                  <div className="popup-incidente">
-                    <h5>{incidente.tipoIncidente}</h5>
-                      <p><strong>Zona:</strong> {textoZonaPopup}</p>
-                      <p><strong>Usuario:</strong> {incidente.nombreUsuario || `Usuario #${(incidente as any).idUsuario || '?'}`}</p>
-                    <p><strong>Fecha:</strong> {new Date(incidente.fechaReporte).toLocaleString('es-EC')}</p>
-                      <p><strong>Descripción:</strong> {incidente.mensaje || (incidente as any).descripcion}</p>
-                  </div>
-                </Popup>
-              </Marker>
+                <Popup><div className="popup-zona"><h4>🟣 {z.nombre}</h4><small>Zona personalizada</small></div></Popup>
+              </Polygon>
             );
           })}
 
+
+
           {/* Marcadores de cámaras (CCTV) */}
+
           {mostrarCamaras && Array.isArray(camaras) && (() => {
             // Diccionario para contar cuántas cámaras están en las mismas coordenadas
             const coordCount: Record<string, number> = {};
@@ -474,11 +480,20 @@ const MapComponent = ({ incidentes, onZonaSeleccionada, focoIncidente }: MapComp
               const latOffset = count * 0.00004;
               const lngOffset = count * 0.00004;
 
+              const esInactiva = camara.estado === 'inactiva';
+              const cameraIcon = L.divIcon({
+                html: `<div style="font-size: 20px; background: ${esInactiva ? '#e74c3c' : '#2c3e50'}; color: white; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.5); border: 2px solid ${esInactiva ? '#f1948a' : '#3498db'};">${esInactiva ? '❌' : '📹'}</div>`,
+                className: 'cctv-marker',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -16],
+              });
+
               return (
             <Marker
               key={`camara-${camara.idCamara || Math.random()}`}
               position={[camara.latitud + latOffset, camara.longitud + lngOffset] as L.LatLngExpression}
-              icon={cctvIcon}
+              icon={cameraIcon}
             >
               <Popup>
                 <div className="popup-camara">

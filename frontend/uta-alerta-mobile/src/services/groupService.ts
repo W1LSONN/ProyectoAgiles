@@ -138,3 +138,109 @@ export async function obtenerGrupoDetalle(idGrupo: number, token: string): Promi
 
     return response.json();
 }
+
+// ── SOLICITUDES DE GRUPO ────────────────────────────────────────────────
+
+export interface SolicitudGrupo {
+    idSolicitud: number;
+    idGrupo: number;
+    nombreGrupo: string;
+    descripcionGrupo?: string;
+    idUsuarioSolicitante: number;
+    idCreador?: number;
+    estado: 'Pendiente' | 'Aceptada' | 'Rechazada';
+    fechaSolicitud: string;
+}
+
+/**
+ * Envía una solicitud de unión a un grupo de confianza.
+ * El solicitante invita al destinatario a su grupo.
+ */
+export async function enviarSolicitud(
+    idGrupo: number,
+    idUsuarioSolicitante: number,
+    idUsuarioDestinatario: number,
+    token: string
+): Promise<{ idSolicitud: number; mensaje: string }> {
+    const response = await fetch(`${GROUP_URL}/api/solicitudes`, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify({ idGrupo, idUsuarioSolicitante, idUsuarioDestinatario }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.mensaje ?? `Error ${response.status} al enviar la solicitud`);
+    }
+    return response.json();
+}
+
+/**
+ * Obtiene las solicitudes PENDIENTES que recibió el usuario.
+ */
+export async function obtenerSolicitudesPendientes(
+    idUsuario: number,
+    token: string
+): Promise<SolicitudGrupo[]> {
+    const response = await fetch(`${GROUP_URL}/api/solicitudes/pendientes/${idUsuario}`, {
+        method: 'GET',
+        headers: buildHeaders(token),
+    });
+    if (!response.ok) return [];
+    return response.json();
+}
+
+/**
+ * Contar solicitudes pendientes (para el badge).
+ */
+export async function contarSolicitudesPendientes(
+    idUsuario: number,
+    token: string
+): Promise<number> {
+    try {
+        const response = await fetch(`${GROUP_URL}/api/solicitudes/pendientes/${idUsuario}/count`, {
+            method: 'GET',
+            headers: buildHeaders(token),
+        });
+        if (!response.ok) return 0;
+        const data = await response.json();
+        return data.count ?? 0;
+    } catch {
+        return 0;
+    }
+}
+
+/**
+ * Responder a una solicitud: Aceptada o Rechazada.
+ */
+export async function responderSolicitud(
+    idSolicitud: number,
+    estado: 'Aceptada' | 'Rechazada',
+    token: string
+): Promise<{ mensaje: string }> {
+    const response = await fetch(`${GROUP_URL}/api/solicitudes/${idSolicitud}/responder`, {
+        method: 'PUT',
+        headers: buildHeaders(token),
+        body: JSON.stringify({ estado }),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err?.mensaje ?? `Error ${response.status} al responder`);
+    }
+    return response.json();
+}
+
+/**
+ * Obtiene las solicitudes PENDIENTES enviadas por el usuario.
+ */
+export async function obtenerSolicitudesEnviadas(
+    idUsuario: number,
+    token: string
+): Promise<SolicitudGrupo[]> {
+    const response = await fetch(`${GROUP_URL}/api/solicitudes/enviadas/${idUsuario}`, {
+        method: 'GET',
+        headers: buildHeaders(token),
+    });
+    if (!response.ok) return [];
+    return response.json();
+}
+
