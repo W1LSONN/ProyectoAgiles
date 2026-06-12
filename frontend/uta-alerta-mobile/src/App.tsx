@@ -12,13 +12,14 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import Guardia from './pages/Guardia';
 import Historial from './pages/Historial';
+import Solicitudes from './pages/Solicitudes';
+import Grupos from './pages/Grupos';
 
 setupIonicReact();
 
 import ErrorBoundary from './components/ErrorBoundary';
-
 import Menu from './components/Menu';
-import Grupos from './pages/Grupos';
+import GlobalNotificationListener from './components/GlobalNotificationListener';
 
 const App: React.FC = () => (
   <IonApp>
@@ -31,10 +32,12 @@ const App: React.FC = () => (
           <Route exact path="/guardia" component={Guardia} />
           <Route exact path="/historial" component={Historial} />
           <Route exact path="/grupos" component={Grupos} />
+          <Route exact path="/solicitudes" component={Solicitudes} />
           <Route exact path="/">
             <Redirect to="/login" />
           </Route>
         </IonRouterOutlet>
+        <GlobalNotificationListener />
       </IonReactRouter>
     </ErrorBoundary>
   </IonApp>

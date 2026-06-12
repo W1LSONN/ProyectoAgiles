@@ -15,6 +15,14 @@ public interface IIncidentClient
     /// Recibe las actualizaciones de ubicación en tiempo real de los guardias.
     /// </summary>
     Task RecibirActualizacionUbicacion(UbicacionGuardiaDto ubicacion);
+    /// <summary>
+    /// Recibe un nuevo reporte de guardia en tiempo real (para el panel de Admin).
+    /// </summary>
+    Task RecibirNuevoReporte(ReporteGuardiaDto reporte);
+    /// <summary>
+    /// Recibe una notificación de solicitud de unión a grupo en tiempo real.
+    /// </summary>
+    Task RecibirSolicitudGrupo(SolicitudGrupoSignalRDto solicitud);
 }
 
 /// <summary>
@@ -23,6 +31,7 @@ public interface IIncidentClient
 public class AlertaIncidenteDto
 {
     public int IdIncidente { get; set; }
+    public int? IdUsuario { get; set; }
     public string NombreUsuario { get; set; } = string.Empty;
     public string Facultad { get; set; } = string.Empty;
     public string Zona { get; set; } = string.Empty;
@@ -46,4 +55,33 @@ public class UbicacionGuardiaDto
     public string Nombre { get; set; } = string.Empty;
     public double Lat { get; set; }
     public double Lon { get; set; }
+}
+
+/// <summary>
+/// DTO para enviar los reportes de guardia a los Admins via SignalR.
+/// </summary>
+public class ReporteGuardiaDto
+{
+    public int IdReporte { get; set; }
+    public string NumeroReporte { get; set; } = string.Empty;
+    public string NombreGuardia { get; set; } = string.Empty;
+    public string Titulo { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    public string TipoReporte { get; set; } = string.Empty;
+    public string Prioridad { get; set; } = string.Empty;
+    public string Zona { get; set; } = string.Empty;
+    public DateTime HoraIncidente { get; set; }
+    public DateTime FechaCreacion { get; set; }
+}
+
+/// <summary>
+/// DTO para enviar la notificación de solicitud de grupo.
+/// </summary>
+public class SolicitudGrupoSignalRDto
+{
+    public int IdSolicitud { get; set; }
+    public int IdGrupo { get; set; }
+    public string NombreGrupo { get; set; } = string.Empty;
+    public int IdUsuarioSolicitante { get; set; }
+    public string Mensaje { get; set; } = string.Empty;
 }

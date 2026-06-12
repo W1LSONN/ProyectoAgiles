@@ -1,12 +1,108 @@
+/* ── Fila de filtros superior ── */
+.dashboard-filters-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.dashboard-extra-filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.extra-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.extra-filter-group label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #555;
+  white-space: nowrap;
+}
+
+.extra-filter-group select {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 0.85rem;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.extra-filter-group select:focus {
+  border-color: #3498db;
+}
+
+/* Badge de filtro activo */
+.active-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ebf5fb;
+  border: 1px solid #aed6f1;
+  color: #2980b9;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.active-filter-badge button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #2980b9;
+  font-size: 0.9rem;
+  padding: 0;
+  line-height: 1;
+  margin-left: 2px;
+}
+
+.active-filter-badge button:hover { color: #e74c3c; }
+
+.date-apply-row {
+  display: flex;
+  align-items: center;
+}
+
+.apply-filters-btn {
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: none;
+  background: #3498db;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.apply-filters-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.apply-filters-btn:hover:not(:disabled) { background: #2980b9; }
+
 .dashboard-filters {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
   background-color: #f0f2f5;
   padding: 6px;
   border-radius: 8px;
   align-self: flex-start;
 }
+
+
 
 .filter-btn {
   border: none;

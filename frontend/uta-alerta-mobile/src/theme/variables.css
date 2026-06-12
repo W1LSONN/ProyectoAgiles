@@ -1,2 +1,12 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+/* Forzar tema claro para evitar problemas de pantalla negra en dispositivos con Dark Mode activado por defecto */
+:root {
+  color-scheme: light !important;
+  --ion-background-color: #ffffff !important;
+  --ion-text-color: #000000 !important;
+  --ion-toolbar-background: #f8f9fa !important;
+  --ion-item-background: #ffffff !important;
+}
+
+body {
+  background-color: #ffffff !important;
+}

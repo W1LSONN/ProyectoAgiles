@@ -11,6 +11,8 @@ public class AppDbContext : DbContext
     public DbSet<Zona> Zonas { get; set; }
     public DbSet<Incidente> Incidentes { get; set; }
     public DbSet<Camara> Camaras { get; set; }
+    public DbSet<Turno> Turnos { get; set; }
+    public DbSet<ReporteGuardia> ReportesGuardia { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +31,12 @@ public class AppDbContext : DbContext
             new Camara { IdCamara = 3, Nombre = "Cámara Salud Interna", Latitud = -1.2676m, Longitud = -78.6235m, UrlStream = "https://www.w3schools.com/html/mov_bbb.mp4", Estado = "Mantenimiento", IdZona = 3 },
             new Camara { IdCamara = 4, Nombre = "Cámara Lab FCI", Latitud = -1.2695m, Longitud = -78.6251m, UrlStream = "https://www.w3schools.com/html/movie.mp4", Estado = "Activa", IdZona = 4 }
         );
+
+        // Seed data — Turnos por defecto
+        modelBuilder.Entity<Turno>().HasData(
+            new Turno { IdTurno = 1, NombreTurno = "Turno Mañana", HoraInicio = new TimeSpan(7, 0, 0), HoraFin = new TimeSpan(13, 0, 0), IdGuardia = 0, NombreGuardia = "", DiaSemana = "Todos", Activo = true, FechaCreacion = new DateTime(2026, 1, 1) },
+            new Turno { IdTurno = 2, NombreTurno = "Turno Tarde", HoraInicio = new TimeSpan(13, 0, 0), HoraFin = new TimeSpan(19, 0, 0), IdGuardia = 0, NombreGuardia = "", DiaSemana = "Todos", Activo = true, FechaCreacion = new DateTime(2026, 1, 1) },
+            new Turno { IdTurno = 3, NombreTurno = "Turno Noche", HoraInicio = new TimeSpan(19, 0, 0), HoraFin = new TimeSpan(7, 0, 0), IdGuardia = 0, NombreGuardia = "", DiaSemana = "Todos", Activo = true, FechaCreacion = new DateTime(2026, 1, 1) }
+        );
     }
 }
-

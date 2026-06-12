@@ -9,6 +9,49 @@
   flex: 1 0 auto;
 }
 
+/* ── TABS ── */
+.config-tabs {
+  display: flex;
+  gap: 4px;
+  background: #f0f2f5;
+  padding: 4px;
+  border-radius: 10px;
+  align-self: flex-start;
+}
+
+.config-tab {
+  padding: 10px 22px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.config-tab.active {
+  background: #fff;
+  color: #2980b9;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.config-tab:hover:not(.active) { background: #e6e9ef; }
+
+/* ── ZONAS PANEL ── */
+.zonas-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.zonas-panel .cameras-form-section {
+  border-left-color: #27ae60;
+}
+
+
+
 /* ══════════════════════════════════════
    FORM SECTION
 ══════════════════════════════════════ */
@@ -584,4 +627,22 @@
   .cameras-tabla tbody tr:hover {
     background-color: #3d3d3d;
   }
+}
+
+.btn-activate {
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.btn-activate:hover:not(:disabled) {
+  background-color: #e8f5e9;
+}
+
+.btn-deactivate {
+  color: #e65100;
+  border-color: #ffcc80;
+}
+
+.btn-deactivate:hover:not(:disabled) {
+  background-color: #fff3e0;
 }

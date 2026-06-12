@@ -66,7 +66,7 @@ export const deleteCamera = async (id: number): Promise<boolean> => {
   return true;
 };
 
-export const updateCamera = async (id: number, data: CameraFormData): Promise<Camera> => {
+export const updateCamera = async (id: number, data: any): Promise<Camera> => {
   const response = await fetch(`${API_CAMERAS_ENDPOINT}/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),

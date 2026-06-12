@@ -1,14 +1,18 @@
-import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
+import { useState, useEffect, Suspense, lazy, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSignalR } from '../hooks/useSignalR';
+import type { AlertaIncidente } from '../services/signalrService';
+import type { Zona } from '../services/zonasService';
+import './Admin.css';
+
 const DashboardPanel = lazy(() => import('../components/DashboardPanel'));
 const MapComponent = lazy(() => import('../components/MapComponent'));
 const CamerasPanel = lazy(() => import('../components/CamerasPanel'));
 const CustomersPanel = lazy(() => import('../components/CustomersPanel'));
 const UsersPanel = lazy(() => import('../components/UsersPanel'));
-import type { AlertaIncidente } from '../services/signalrService';
-import type { Zona } from '../services/zonasService';
-import './Admin.css';
+const GruposAdminPanel = lazy(() => import('../components/GruposAdminPanel'));
+const ReportesAdminPanel = lazy(() => import('../components/ReportesAdminPanel'));
+const TurnosAdminPanel = lazy(() => import('../components/TurnosAdminPanel'));
 
 const ITEMS_POR_PAGINA = 10;
 const INCIDENTS_URL = import.meta.env.VITE_INCIDENT_URL ?? 'http://localhost:5008';
@@ -19,20 +23,49 @@ const Admin = () => {
   const [incidentesError, setIncidentesError] = useState<string | null>(null);
   const [incidentesDB, setIncidentesDB] = useState<AlertaIncidente[]>([]);
   const [pagina, setPagina] = useState(1);
-  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers' | 'usuarios'>('dashboard');
+  const [seccion, setSeccion] = useState<'dashboard' | 'notificaciones' | 'mapa' | 'camaras' | 'customers' | 'usuarios' | 'grupos' | 'reportes' | 'turnos'>('dashboard');
+
+  // Estados para filtros de notificaciones
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+  const [filtroZona, setFiltroZona] = useState<string>('todas');
+  const [filtroBusqueda, setFiltroBusqueda] = useState<string>('');
   const [_zonaSeleccionada, setZonaSeleccionada] = useState<Zona | null>(null);
   const [incidenteFoco, setIncidenteFoco] = useState<AlertaIncidente | null>(null);
 
   const [toasts, setToasts] = useState<{ id: number; data: AlertaIncidente }[]>([]);
 
+  const playAlertSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      
+      gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.85);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.85);
+    } catch (e) {
+      console.warn("AudioContext bloqueado por política de autoplay del navegador", e);
+    }
+  }, []);
+
   const handleNewAlerta = useCallback((alerta: AlertaIncidente) => {
     console.log("Disparando toast para nuevo incidente:", alerta);
+    playAlertSound();
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, data: alerta }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 6000);
-  }, []);
+  }, [playAlertSound]);
 
   const handleToastClick = (toastId: number, alerta: AlertaIncidente) => {
     setSeccion('mapa');
@@ -96,7 +129,8 @@ const Admin = () => {
   ].reduce<AlertaIncidente[]>((acumuladas, alerta) => {
     const existente = acumuladas.findIndex((item) => item.idIncidente === alerta.idIncidente);
     if (existente >= 0) {
-      acumuladas[existente] = { ...acumuladas[existente], ...alerta };
+      // Priorizar datos de WebSockets (acumuladas[existente]) sobre base de datos antigua (alerta)
+      acumuladas[existente] = { ...alerta, ...acumuladas[existente] };
       return acumuladas;
     }
 
@@ -104,10 +138,32 @@ const Admin = () => {
     return acumuladas;
   }, []);
 
-  if (!usuario?.token) { navigate('/login'); return null; }
+  // Filtrado local de notificaciones
+  const alertasFiltradas = useMemo(() => {
+    return alertas.filter(a => {
+      const estado = (a.estado ?? 'Activo').toLowerCase();
+      const tipo = (a.tipoIncidente ?? '').toLowerCase();
+      const zona = (a.zona ?? '').toLowerCase();
+      const nombre = (a.nombreUsuario ?? '').toLowerCase();
 
-  const totalPaginas = Math.max(1, Math.ceil(alertas.length / ITEMS_POR_PAGINA));
-  const alertasPagina = alertas.slice((pagina - 1) * ITEMS_POR_PAGINA, pagina * ITEMS_POR_PAGINA);
+      if (filtroEstado !== 'todos' && estado !== filtroEstado.toLowerCase()) return false;
+      if (filtroTipo !== 'todos' && tipo !== filtroTipo.toLowerCase()) return false;
+      if (filtroZona !== 'todas' && !zona.includes(filtroZona.toLowerCase())) return false;
+      if (filtroBusqueda && !nombre.includes(filtroBusqueda.toLowerCase())) return false;
+      return true;
+    });
+  }, [alertas, filtroEstado, filtroTipo, filtroZona, filtroBusqueda]);
+
+  useEffect(() => {
+    if (!usuario?.token) {
+      navigate('/login');
+    }
+  }, [usuario?.token, navigate]);
+
+  if (!usuario?.token) { return null; }
+
+  const totalPaginas = Math.max(1, Math.ceil(alertasFiltradas.length / ITEMS_POR_PAGINA));
+  const alertasPagina = alertasFiltradas.slice((pagina - 1) * ITEMS_POR_PAGINA, pagina * ITEMS_POR_PAGINA);
 
   const formatFecha = (iso: string) => {
     const d = new Date(iso);
@@ -176,7 +232,37 @@ const Admin = () => {
             <span className="nav-icon-wrap">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
             </span>
-            Cámaras
+            Config. Mapa
+          </button>
+
+          <button
+            className={`nav-item ${seccion === 'grupos' ? 'activo' : ''}`}
+            onClick={() => setSeccion('grupos')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+            </span>
+            Grupos
+          </button>
+
+          <button
+            className={`nav-item ${seccion === 'reportes' ? 'activo' : ''}`}
+            onClick={() => setSeccion('reportes')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            </span>
+            Reportes
+          </button>
+
+          <button
+            className={`nav-item ${seccion === 'turnos' ? 'activo' : ''}`}
+            onClick={() => setSeccion('turnos')}
+          >
+            <span className="nav-icon-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            </span>
+            Turnos
           </button>
 
           <button
@@ -224,9 +310,12 @@ const Admin = () => {
             {seccion === 'dashboard' && 'Dashboard y Estadísticas'}
             {seccion === 'notificaciones' && 'Notificaciones'}
             {seccion === 'mapa' && 'Mapa'}
-            {seccion === 'camaras' && 'Administración de Cámaras'}
+            {seccion === 'camaras' && 'Configuración de Mapa'}
             {seccion === 'customers' && 'Customers'}
             {seccion === 'usuarios' && 'Gestión de Usuarios'}
+            {seccion === 'grupos' && 'Grupos de Confianza'}
+            {seccion === 'reportes' && 'Reportes de Guardia'}
+            {seccion === 'turnos' && 'Turnos de Guardia'}
           </h1>
 
           <div className="topbar-right">
@@ -263,6 +352,53 @@ const Admin = () => {
 
           {seccion === 'notificaciones' && (
             <>
+              {/* BARRA DE FILTROS */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar por nombre..."
+                  value={filtroBusqueda}
+                  onChange={e => { setFiltroBusqueda(e.target.value); setPagina(1); }}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.88rem', minWidth: '180px' }}
+                />
+                <select
+                  value={filtroEstado}
+                  onChange={e => { setFiltroEstado(e.target.value); setPagina(1); }}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.88rem' }}
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="activo">Activo</option>
+                  <option value="asumido">Asumido</option>
+                  <option value="cerrado">Cerrado</option>
+                </select>
+                <select
+                  value={filtroTipo}
+                  onChange={e => { setFiltroTipo(e.target.value); setPagina(1); }}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.88rem' }}
+                >
+                  <option value="todos">Todos los tipos</option>
+                  <option value="robo">Robo</option>
+                  <option value="arma blanca">Arma Blanca</option>
+                  <option value="emergencia de salud">Emergencia de Salud</option>
+                  <option value="alerta de seguridad">Alerta de seguridad</option>
+                  <option value="otro">Otro</option>
+                </select>
+                <select
+                  value={filtroZona}
+                  onChange={e => { setFiltroZona(e.target.value); setPagina(1); }}
+                  style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '0.88rem' }}
+                >
+                  <option value="todas">Todas las zonas</option>
+                  <option value="zona 1">Zona 1</option>
+                  <option value="zona 2">Zona 2</option>
+                  <option value="zona 3">Zona 3</option>
+                  <option value="zona 4">Zona 4</option>
+                </select>
+                <span style={{ fontSize: '0.85rem', color: '#888', marginLeft: 'auto' }}>
+                  {alertasFiltradas.length} resultado{alertasFiltradas.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+
               <div className="tabla-scroll">
                 <table className="notif-tabla">
                   <thead>
@@ -341,6 +477,24 @@ const Admin = () => {
           {seccion === 'camaras' && (
             <Suspense fallback={<div className="loading-panel">Cargando cámaras...</div>}>
               <CamerasPanel />
+            </Suspense>
+          )}
+
+          {seccion === 'grupos' && (
+            <Suspense fallback={<div className="loading-panel">Cargando grupos...</div>}>
+              <GruposAdminPanel />
+            </Suspense>
+          )}
+
+          {seccion === 'reportes' && (
+            <Suspense fallback={<div className="loading-panel">Cargando reportes...</div>}>
+              <ReportesAdminPanel />
+            </Suspense>
+          )}
+
+          {seccion === 'turnos' && (
+            <Suspense fallback={<div className="loading-panel">Cargando turnos...</div>}>
+              <TurnosAdminPanel />
             </Suspense>
           )}
 

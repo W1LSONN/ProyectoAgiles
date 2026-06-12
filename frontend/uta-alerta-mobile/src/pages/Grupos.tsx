@@ -12,7 +12,10 @@ import {
   unirseGrupo as apiUnirseGrupo,
   salirGrupo as apiSalirGrupo,
   obtenerGrupoDetalle,
+  enviarSolicitud as apiEnviarSolicitud,
+  obtenerSolicitudesEnviadas,
   Grupo,
+  SolicitudGrupo,
 } from '../services/groupService';
 import { obtenerDetallesUsuario } from '../services/userService';
 import './Home.css'; // Podemos reusar los mismos estilos
@@ -40,6 +43,10 @@ const Grupos: React.FC = () => {
   const [grupoSeleccionado, setGrupoSeleccionado] = useState<Grupo | null>(null);
   const [detallesUsuarios, setDetallesUsuarios] = useState<Record<number, { nombre: string; facultad: string }>>({});
 
+  // Nuevos estados para búsqueda y solicitudes enviadas
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [solicitudesEnviadas, setSolicitudesEnviadas] = useState<SolicitudGrupo[]>([]);
+
   useEffect(() => {
     const raw = localStorage.getItem('usuario');
     if (!raw) {
@@ -53,8 +60,17 @@ const Grupos: React.FC = () => {
     }
   }, [history]);
 
+  const cargarSolicitudes = async (uId: number, token: string) => {
+    try {
+      const enviadas = await obtenerSolicitudesEnviadas(uId, token);
+      setSolicitudesEnviadas(enviadas);
+    } catch (e) {
+      console.warn('No se pudieron cargar solicitudes enviadas', e);
+    }
+  };
+
   useEffect(() => {
-    const cargarGrupos = async () => {
+    const cargarDatos = async () => {
       if (!usuario) return;
       setGruposCargando(true);
       setGruposError(null);
@@ -62,6 +78,7 @@ const Grupos: React.FC = () => {
       try {
         const gruposObtenidos = await obtenerGrupos(usuario.token);
         setGrupos(gruposObtenidos);
+        await cargarSolicitudes(usuario.idUsuario, usuario.token);
       } catch (error) {
         const e = error as Error;
         setGruposError(e.message || 'No se pudieron cargar los grupos');
@@ -70,7 +87,7 @@ const Grupos: React.FC = () => {
       }
     };
 
-    cargarGrupos();
+    cargarDatos();
   }, [usuario]);
 
   useEffect(() => {
@@ -103,6 +120,7 @@ const Grupos: React.FC = () => {
     try {
       const gruposObtenidos = await obtenerGrupos(usuario.token);
       setGrupos(gruposObtenidos);
+      await cargarSolicitudes(usuario.idUsuario, usuario.token);
     } catch (error) {
       const e = error as Error;
       setGruposError(e.message || 'No se pudieron cargar los grupos');
@@ -143,17 +161,17 @@ const Grupos: React.FC = () => {
     }
   };
 
-  const handleUnirse = async (grupoId: number) => {
+  const handleSolicitarUnirse = async (grupo: Grupo) => {
     if (!usuario) return;
-    setAccionGrupos('Uniendo al grupo...');
+    setAccionGrupos('Enviando solicitud de unión...');
     setGruposError(null);
 
     try {
-      await apiUnirseGrupo(grupoId, usuario.idUsuario, usuario.token);
+      await apiEnviarSolicitud(grupo.idGrupo, usuario.idUsuario, grupo.idCreador, usuario.token);
       await recargarGrupos();
     } catch (error) {
       const e = error as Error;
-      setGruposError(e.message || 'No se pudo unir al grupo');
+      setGruposError(e.message || 'No se pudo enviar la solicitud de unión');
     } finally {
       setAccionGrupos(null);
     }
@@ -177,7 +195,11 @@ const Grupos: React.FC = () => {
 
   const estaEnGrupo = (grupo: Grupo) => {
     if (!usuario || !grupo.miembros) return false;
-    return grupo.miembros.some((miembro) => miembro.idUsuario === usuario.idUsuario);
+    return grupo.miembros.some((miembro) => Number(miembro.idUsuario) === Number(usuario.idUsuario));
+  };
+
+  const tieneSolicitudPendiente = (grupoId: number) => {
+    return solicitudesEnviadas.some((s) => Number(s.idGrupo) === Number(grupoId) && s.estado === 'Pendiente');
   };
 
   return (
@@ -221,6 +243,16 @@ const Grupos: React.FC = () => {
             </IonButton>
           </div>
 
+          {/* BARRA DE BÚSQUEDA */}
+          <div style={{ marginTop: '16px', background: '#fff', borderRadius: '8px', border: '1px solid #ddd', padding: '2px 8px' }}>
+            <IonInput
+              value={searchQuery}
+              placeholder="🔍 Buscar grupo de confianza..."
+              onIonInput={(e) => setSearchQuery(e.detail.value ?? '')}
+              style={{ fontSize: '0.9rem', color: '#333' }}
+            />
+          </div>
+
           {accionGrupos && (
             <div className="grupo-notice">{accionGrupos}</div>
           )}
@@ -237,13 +269,23 @@ const Grupos: React.FC = () => {
               </button>
             </div>
 
-            {gruposCargando ? (
-              <div className="grupo-loading">Cargando grupos...</div>
-            ) : grupos.length === 0 ? (
-              <div className="grupo-vacio">No hay grupos disponibles por ahora.</div>
-            ) : (
-              grupos.map((grupo) => {
+            {(() => {
+              const gruposFiltrados = grupos.filter(g =>
+                g.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                g.descripcion.toLowerCase().includes(searchQuery.toLowerCase())
+              );
+
+              if (gruposCargando) {
+                return <div className="grupo-loading">Cargando grupos...</div>;
+              }
+              
+              if (gruposFiltrados.length === 0) {
+                return <div className="grupo-vacio">No se encontraron grupos.</div>;
+              }
+
+              return gruposFiltrados.map((grupo) => {
                 const enMiGrupo = estaEnGrupo(grupo);
+                const solicitado = tieneSolicitudPendiente(grupo.idGrupo);
 
                 return (
                   <div key={grupo.idGrupo} className="grupo-card">
@@ -252,15 +294,37 @@ const Grupos: React.FC = () => {
                         <h3>{grupo.nombre}</h3>
                         <p>{grupo.descripcion}</p>
                       </div>
-                      <IonButton
-                        fill={enMiGrupo ? 'outline' : 'solid'}
-                        color={enMiGrupo ? 'medium' : 'primary'}
-                        size="small"
-                        className="grupo-action"
-                        onClick={() => enMiGrupo ? handleSalir(grupo.idGrupo) : handleUnirse(grupo.idGrupo)}
-                      >
-                        {enMiGrupo ? 'Salir' : 'Unirse'}
-                      </IonButton>
+                      {enMiGrupo ? (
+                        <IonButton
+                          fill="outline"
+                          color="medium"
+                          size="small"
+                          className="grupo-action"
+                          onClick={() => handleSalir(grupo.idGrupo)}
+                        >
+                          Salir
+                        </IonButton>
+                      ) : solicitado ? (
+                        <IonButton
+                          fill="outline"
+                          color="medium"
+                          size="small"
+                          className="grupo-action"
+                          disabled
+                        >
+                          Pendiente
+                        </IonButton>
+                      ) : (
+                        <IonButton
+                          fill="solid"
+                          color="primary"
+                          size="small"
+                          className="grupo-action"
+                          onClick={() => handleSolicitarUnirse(grupo)}
+                        >
+                          Solicitar
+                        </IonButton>
+                      )}
                     </div>
                     <div className="grupo-meta">
                       <span>{grupo.miembros?.length ?? 0} miembro{(grupo.miembros?.length ?? 0) === 1 ? '' : 's'}</span>
@@ -272,8 +336,8 @@ const Grupos: React.FC = () => {
                     </div>
                   </div>
                 );
-              })
-            )}
+              });
+            })()}
           </div>
         </div>
 

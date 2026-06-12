@@ -8,15 +8,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // ── CORS ──────────────────────────────────────────────────────────────
+// ABIERTO para permitir conexión desde cualquier red (universidad, ngrok, etc.)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontends", policy =>
     {
         policy
-            .WithOrigins(
-                "http://localhost:5173",  // React web (Vite)
-                "http://localhost:8100"   // Ionic mobile
-            )
+            .AllowAnyOrigin()
             .AllowAnyMethod()
             .AllowAnyHeader();
     });

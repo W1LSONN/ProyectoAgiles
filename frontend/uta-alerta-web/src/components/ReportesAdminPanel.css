@@ -1,0 +1,241 @@
+.reportes-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 20px;
+    padding: 10px;
+}
+
+.reportes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.reportes-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    color: #1a1a1a;
+}
+
+.filtros {
+    display: flex;
+    gap: 10px;
+}
+
+.filtros select {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    outline: none;
+}
+
+.btn-refresh {
+    padding: 8px 16px;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-refresh:hover {
+    background: #e4e4e4;
+}
+
+.reportes-layout {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    min-height: 0;
+}
+
+.reportes-lista {
+    flex: 2;
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    overflow-y: auto;
+}
+
+.tabla-reportes {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-reportes th {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 0.85rem;
+    color: #555;
+    position: sticky;
+    top: 0;
+    border-bottom: 2px solid #eee;
+}
+
+.tabla-reportes td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+    color: #333;
+}
+
+.tabla-reportes tr {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.tabla-reportes tr:hover {
+    background: #f9f9f9;
+}
+
+.tabla-reportes tr.selected {
+    background: #eef2ff;
+    border-left: 3px solid #4f46e5;
+}
+
+.reporte-detalle {
+    flex: 1;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-width: 300px;
+}
+
+.reporte-detalle h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+.detalle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.numero {
+    font-weight: bold;
+    font-size: 1.1rem;
+    color: #4f46e5;
+}
+
+.info-row {
+    display: flex;
+    gap: 15px;
+}
+
+.info-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.info-group.half {
+    flex: 1;
+}
+
+.info-group label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #777;
+    text-transform: uppercase;
+}
+
+.info-group p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #111;
+}
+
+.desc-box {
+    background: #fff;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.detalle-acciones {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid #ddd;
+}
+
+.detalle-acciones h4 {
+    margin: 0 0 10px 0;
+    font-size: 0.95rem;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-estado {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-estado:hover {
+    background: #f5f5f5;
+}
+
+.btn-estado.active {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+}
+
+.btn-estado.resuelto.active {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+/* Badges */
+.estado-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.estado-enviado { background: #fee2e2; color: #991b1b; }
+.estado-leído { background: #dbeafe; color: #1e40af; }
+.estado-resuelto { background: #d1fae5; color: #065f46; }
+
+.prio-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+.prio-baja { background: #f3f4f6; color: #4b5563; }
+.prio-media { background: #fef3c7; color: #92400e; }
+.prio-alta { background: #ffedd5; color: #9a3412; }
+.prio-urgente { background: #fee2e2; color: #991b1b; }
+
+@media (max-width: 768px) {
+    .reportes-layout {
+        flex-direction: column;
+    }
+}

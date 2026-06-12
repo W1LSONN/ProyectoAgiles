@@ -43,4 +43,31 @@ public class NotificationClient
             _logger.LogError(ex, "❌ Error al notificar al NotificationService");
         }
     }
+
+    /// <summary>
+    /// Envía un reporte de guardia al NotificationService para broadcast a Admins via SignalR.
+    /// </summary>
+    public async Task EnviarReporteAsync(ReporteNotificacionDto reporte)
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(reporte, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _http.PostAsync("/api/notifications/reporte", content);
+
+            if (response.IsSuccessStatusCode)
+                _logger.LogInformation("✅ Reporte #{Numero} notificado a Admin", reporte.NumeroReporte);
+            else
+                _logger.LogWarning("⚠️ NotificationService respondió {Status} para reporte", response.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error al notificar reporte al NotificationService");
+        }
+    }
 }
